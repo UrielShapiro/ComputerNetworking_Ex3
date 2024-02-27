@@ -3,8 +3,16 @@
 
 #include <stddef.h>
 
-struct rudp_sender;
-struct rudp_receiver;
+typedef struct {
+    int sock;
+    struct sockaddr receiver;
+} rudp_sender;
+
+typedef struct {
+    int sock;
+    struct sockaddr sender_address;
+    socklen_t sender_address_size;
+} rudp_receiver;
 
 rudp_sender *rudp_open_sender(char *address, short port);
 rudp_receiver *rudp_open_receiver(short port);
