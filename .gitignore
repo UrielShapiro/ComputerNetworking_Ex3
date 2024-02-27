@@ -1,0 +1,3 @@
+*.o *.so *.a
+# executables
+udp_client udp_server
