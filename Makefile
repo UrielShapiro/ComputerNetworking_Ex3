@@ -2,7 +2,7 @@
 CC = gcc
 
 # Flags for the compiler.
-CFLAGS = -Wall -Wextra -Werror -std=c99 -pedantic
+CFLAGS = -Wall -Wextra -Werror -ggdb -std=c99 -pedantic
 
 # Command to remove files.
 RM = rm -f
@@ -71,3 +71,20 @@ runuc_trace: udp_client
 # Remove all the object files, shared libraries and executables.
 clean:
 	$(RM) *.o *.so udp_server udp_client
+
+rudp.o: rudp.c rudp.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+rudp_sender_test.o: rudp_sender_test.c rudp.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+rudp_sender_test: rudp_sender_test.o rudp.o
+	$(CC) $(CFLAGS) -o $@ $^
+
+rudp_receiver_test.o: rudp_receiver_test.c rudp.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+rudp_receiver_test: rudp_receiver_test.o rudp.o
+	$(CC) $(CFLAGS) -o $@ $^
+
+tests: rudp_receiver_test rudp_sender_test
