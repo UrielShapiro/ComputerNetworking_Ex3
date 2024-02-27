@@ -1,3 +1,6 @@
-*.o *.so *.a
+*.o
+*.so
+*.a
 # executables
-udp_client udp_server
+rudp_receiver_test
+rudp_sender_test

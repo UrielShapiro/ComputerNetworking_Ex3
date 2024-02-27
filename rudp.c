@@ -10,8 +10,8 @@
 
 unsigned short calculate_checksum(void *data, unsigned int bytes)
 {
-    if (DEBUG) printf(" checksum of data with size %d\n", bytes);    //DEBUG
-    if (DEBUG) printf("Data is: "); //DEBUG
+    if (DEBUG) printf(" checksum of data with size %d\n", bytes);
+    if (DEBUG) printf("Data is: ");
     if (DEBUG) for (size_t i = 0; i < bytes; ++i) printf("%02x", ((char*)data)[i]);
     if (DEBUG) printf("\n");
     /* Compute Internet Checksum for "len" bytes
@@ -35,13 +35,13 @@ unsigned short calculate_checksum(void *data, unsigned int bytes)
     /*  Fold 32-bit sum to 16 bits */
     while (sum >> 16)
         sum = (sum & 0xffff) + (sum >> 16);
-    if (DEBUG) printf("Calculated checksum is %hu\n", ~(unsigned short) sum);   //DEBUG
+    if (DEBUG) printf("Calculated checksum is %hu\n", ~(unsigned short) sum);
     return ~(unsigned short)sum;
 }
 
 void set_checksum(void *rudp_message)
 {
-    if (DEBUG) printf("Setting");  //DEBUG
+    if (DEBUG) printf("Setting");
     rudp_header *header = (rudp_header *)rudp_message;
     header->checksum = 0;
     header->checksum = calculate_checksum(rudp_message, sizeof(rudp_header) + header->len);
@@ -49,7 +49,7 @@ void set_checksum(void *rudp_message)
 
 int validate_checksum(void *rudp_message)
 {
-    if (DEBUG) printf("Validating");   //DEBUG
+    if (DEBUG) printf("Validating");
     return 0 == calculate_checksum(rudp_message, sizeof(rudp_header) + ((rudp_header *)rudp_message)->len);
 }
 
