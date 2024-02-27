@@ -7,11 +7,13 @@ CFLAGS = -Wall -Wextra -Werror -ggdb -std=c99 -pedantic
 # Command to remove files.
 RM = rm -f
 
+EXECUTABLES = TCP_Sender TCP_Receiver
+
 # Phony targets - targets that are not files but commands to be executed by make.
 .PHONY: all default clean runuc runus
 
 # Default target - compile everything and create the executables and libraries.
-all: udp_server udp_client
+all: TCP_Sender TCP_Receiver
 
 # Alias for the default target.
 default: all
@@ -22,26 +24,18 @@ default: all
 ############
 
 # Compile the udp server.
-udp_server: udp_server.o
+TCP_Sender: TCP_Sender.o
 	$(CC) $(CFLAGS) -o $@ $^
 
 # Compile the udp client.
-udp_client: udp_client.o
+TCP_Receiver: TCP_Receiver.o
 	$(CC) $(CFLAGS) -o $@ $^
 
+TCP_Receiver.o: TCP_Receiver.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
-################
-# Run programs #
-################
-
-# Run udp server.
-runus: udp_server
-	./udp_server
-
-# Run udp client.
-runuc: udp_client
-	./udp_client
-
+TCP_Sender.o: TCP_Sender.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
 ################
 # System Trace #
@@ -70,7 +64,7 @@ runuc_trace: udp_client
 
 # Remove all the object files, shared libraries and executables.
 clean:
-	$(RM) *.o *.so udp_server udp_client
+	$(RM) *.o *.so $(EXECUTABLES)
 
 rudp.o: rudp.c rudp.h
 	$(CC) $(CFLAGS) -c -o $@ $<
