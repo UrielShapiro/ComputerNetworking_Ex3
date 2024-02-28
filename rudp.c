@@ -164,8 +164,8 @@ rudp_receiver *rudp_open_receiver(unsigned short port)
         return NULL;
     }
 
-    int opt = 1;
-    if (setsockopt(this->sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
+    int reuse = 1;
+    if (setsockopt(this->sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0)
     {
         perror("Error while setting reuse address option at open_receiver");
         close(this->sock);
@@ -248,7 +248,7 @@ void rudp_close_sender(rudp_sender *this)
     unsigned int remaining_tries = MAX_RETRIES;
     while (remaining_tries > 0)
     {
-        printf("Attempting FIN, remaining: %d\n", remaining_tries);  // DEBUG
+        printf("Attempting FIN, remaining: %d\n", remaining_tries); // DEBUG
         if (sendto(this->sock, &close_message, sizeof(close_message), 0, &this->peer_address, this->peer_address_size) < 0)
         {
             perror("Error sending close message at close_sender");
@@ -298,6 +298,11 @@ void rudp_close_receiver(rudp_receiver *this)
 
 int rudp_send(rudp_sender *this, void *data, size_t size)
 {
+    if (size + sizeof(rudp_header) > 1<<16)     // UDP cannot send this in one go
+    {
+        fprintf(stderr, "Error: Message too large for rudp_send, use rudp_sendall");
+        return -1;
+    }
     char *message = malloc(sizeof(rudp_header) + size);
     memcpy(message + sizeof(rudp_header), data, size);
     rudp_header *header = (rudp_header *)message;

@@ -13,7 +13,7 @@ EXECUTABLES = TCP_Sender TCP_Receiver
 .PHONY: all default clean runuc runus
 
 # Default target - compile everything and create the executables and libraries.
-all: TCP_Sender TCP_Receiver
+all: TCP_Sender TCP_Receiver RUDP_Sender RUDP_Receiver
 
 # Alias for the default target.
 default: all
@@ -37,6 +37,23 @@ TCP_Receiver.o: TCP_Receiver.c
 TCP_Sender.o: TCP_Sender.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
+# Compile the udp server.
+RUDP_Sender: RUDP_Sender.o rudp.o
+	$(CC) $(CFLAGS) -o $@ $^
+
+# Compile the udp client.
+RUDP_Receiver: RUDP_Receiver.o rudp.o
+	$(CC) $(CFLAGS) -o $@ $^
+
+RUDP_Receiver.o: RUDP_Receiver.c rudp.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+RUDP_Sender.o: RUDP_Sender.c rudp.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+rudp.o: rudp.c rudp.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
 ################
 # System Trace #
 ################
@@ -49,15 +66,6 @@ runus_trace: udp_server
 runuc_trace: udp_client
 	strace ./udp_client
 
-################
-# Object files #
-################
-
-# Compile all the C files into object files.
-%.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
-
-
 #################
 # Cleanup files #
 #################
@@ -65,9 +73,6 @@ runuc_trace: udp_client
 # Remove all the object files, shared libraries and executables.
 clean:
 	$(RM) *.o *.so $(EXECUTABLES)
-
-rudp.o: rudp.c rudp.h
-	$(CC) $(CFLAGS) -c -o $@ $<
 
 rudp_sender_test.o: rudp_sender_test.c rudp.h
 	$(CC) $(CFLAGS) -c -o $@ $<

@@ -4,3 +4,7 @@
 # executables
 rudp_receiver_test
 rudp_sender_test
+RUDP_Sender
+TCP_Receiver
+TCP_Sender
+RUDP_Receiver
