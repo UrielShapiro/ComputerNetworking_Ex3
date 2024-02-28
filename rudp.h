@@ -42,7 +42,7 @@ void rudp_close_sender(rudp_sender *sender);
 void rudp_close_receiver(rudp_receiver *receiver);
 
 /**
- * Send <size> bytes stroed at <data> through the sender
+ * Sends <size> bytes stroed at <data> through the sender
  * Returns the number of bytes sent
  * Returns -1 on error
 */
@@ -60,12 +60,14 @@ enum rudp_header_flags {
     SYN = 1<<0,
     ACK = 1<<1,
     FIN = 1<<2,
+    MOR = 1<<3,
 };
 
 typedef struct {
     unsigned short len;     // size not including header
     char flags;
     unsigned short checksum;
+    unsigned short segment_num;
 } rudp_header;
 
 #endif // _RUDP_H_
