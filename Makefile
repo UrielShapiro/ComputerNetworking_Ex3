@@ -7,7 +7,7 @@ CFLAGS = -Wall -Wextra -Werror -ggdb -std=c99 -pedantic
 # Command to remove files.
 RM = rm -f
 
-EXECUTABLES = TCP_Sender TCP_Receiver
+EXECUTABLES = TCP_Sender TCP_Receiver RUDP_Sender RUDP_Receiver rudp_sender_test rudp_receiver_test
 
 # Phony targets - targets that are not files but commands to be executed by make.
 .PHONY: all default clean runuc runus
