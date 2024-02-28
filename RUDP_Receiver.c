@@ -100,43 +100,21 @@ int main(int argc, char **argv)
         int bytes_received;
         // Create a buffer to store the received message.
         char buffer[BUFFER_SIZE] = {0};
-        size_t amount_of_bytes_received = 0;
         clock_t start, end;
         double time_used_inMS;
         start = clock();
-        while (amount_of_bytes_received < RECEIVED_FILE_SIZE && strcmp(buffer, "Closing connection") != 0)
-        {
-            // Receive a message from the sender and store it in the buffer.
-            bytes_received = rudp_recv(receiver, buffer, BUFFER_SIZE);
-
-            // If the message receiving failed, print an error message and return 1.
-            if (bytes_received == -2)
-            {
-                fprintf(stderr, "Failed to receive from sender\n");
-                rudp_close_receiver(receiver);
-                return 1;
-            }
-            if (bytes_received == -1)
-            {
-                break;
-            }
-            amount_of_bytes_received += bytes_received;
-        }
+        // Receive a message from the sender and store it in the buffer.
+        bytes_received = rudp_recv(receiver, buffer, BUFFER_SIZE);
         end = clock();
-        time_used_inMS = 1000 * (double)(end - start) / CLOCKS_PER_SEC; // Calculating the time it took for the message to be received.
-        if (format == 0)
-            printf("Time taken to receive that messege: %f ms\n", time_used_inMS);
-        addTimeToList(&Times_list, time_used_inMS);
 
-        // if (!format)
-        //     fprintf(stdout, "Received %ld bytes from the sender %s:%d\n", amount_of_bytes_received, inet_ntoa(sender.sin_addr), ntohs(sender.sin_port)); // TODO: edit?
-        if(format)
+        // If the message receiving failed, print an error message and return 1.
+        if (bytes_received == -2)
         {
-            printf("%ld,%f,%f\n", run, time_used_inMS, (double)convertToMegaBytes(amount_of_bytes_received) / (time_used_inMS / 1000));
-            run++;
+            fprintf(stderr, "Failed to receive from sender\n");
+            rudp_close_receiver(receiver);
+            return 1;
         }
-        
-        
+
         // If the received message is "Closing connection", close the sender's socket and return 0.
         if (bytes_received == -1)
         {
@@ -155,6 +133,19 @@ int main(int argc, char **argv)
                 printf("Average time taken to receive a message: %f\n", avg);
             free(Times_list.data);
             return 0;
+        }
+        
+        time_used_inMS = 1000 * (double)(end - start) / CLOCKS_PER_SEC; // Calculating the time it took for the message to be received.
+        if (format == 0)
+            printf("Time taken to receive that messege: %f ms\n", time_used_inMS);
+        addTimeToList(&Times_list, time_used_inMS);
+
+        if (!format)
+            fprintf(stdout, "Received %d bytes from the sender\n", bytes_received); // TODO: edit?
+        if (format)
+        {
+            printf("%ld,%f,%f\n", run, time_used_inMS, (double)convertToMegaBytes(bytes_received) / (time_used_inMS / 1000));
+            run++;
         }
     }
 
