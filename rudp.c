@@ -5,8 +5,11 @@
 #include <stdio.h>      // For perror
 #include <string.h>     // For memset
 #include <unistd.h>     // For close
+#include <sys/time.h>   // For struct timeval
 
 #define DEBUG 0
+
+#define ACK_TIMEOUT_US 100000
 
 unsigned short calculate_checksum(void *data, unsigned int bytes)
 {
@@ -60,7 +63,7 @@ rudp_sender *rudp_open_sender(char *address, unsigned short port)
     this->sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (this->sock == -1)
     {
-        perror("Error on socket creation at sender");
+        perror("Error on socket creation at open_sender");
         free(this);
         return NULL;
     }
@@ -71,7 +74,7 @@ rudp_sender *rudp_open_sender(char *address, unsigned short port)
 
     if (inet_pton(AF_INET, address, &receiver_address.sin_addr) <= 0)
     {
-        perror("Error on address conversion at sender");
+        perror("Error on address conversion at open_sender");
         close(this->sock);
         free(this);
         return NULL;
@@ -82,7 +85,17 @@ rudp_sender *rudp_open_sender(char *address, unsigned short port)
     this->peer_address = *(struct sockaddr *)&receiver_address;
 
     this->peer_address_size = sizeof(receiver_address);
-    // TODO: socket options? timeout
+
+    struct timeval timeout;
+    timeout.tv_sec = 0;
+    timeout.tv_usec = ACK_TIMEOUT_US;
+    if (setsockopt(this->sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
+    {
+        perror("Error setting timeout at open_sender");
+        close(this->sock);
+        free(this);
+        return NULL;
+    }
 
     rudp_header syn_message; // we will send only the header
     syn_message.len = 0;
@@ -91,17 +104,23 @@ rudp_sender *rudp_open_sender(char *address, unsigned short port)
 
     if (sendto(this->sock, &syn_message, sizeof(syn_message), 0, &this->peer_address, this->peer_address_size) <= 0)
     {
-        perror("Error sending SYN message at sender");
+        perror("Error sending SYN message at open_sender");
         close(this->sock);
         free(this);
         return NULL;
     }
 
     rudp_header ack_message;
-    recv(this->sock, &ack_message, sizeof(ack_message), 0);
+    if (recv(this->sock, &ack_message, sizeof(ack_message), 0) < 0)
+    {
+        perror("Error receiveing ACK at open_sender");
+        close(this->sock);
+        free(this);
+        return NULL;
+    }
     if (!validate_checksum(&ack_message))
     {
-        fprintf(stderr, "Error on ACK message at sender\n");
+        fprintf(stderr, "Error on ACK message at open_sender\n");
         close(this->sock);
         free(this);
         return NULL;
@@ -117,7 +136,7 @@ rudp_receiver *rudp_open_receiver(unsigned short port)
     this->sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (this->sock == -1)
     {
-        perror("Error on socket creation at receiver");
+        perror("Error on socket creation at open_receiver");
         free(this);
         return NULL;
     }
@@ -125,7 +144,7 @@ rudp_receiver *rudp_open_receiver(unsigned short port)
     int opt = 1;
     if (setsockopt(this->sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
     {
-        perror("Error while setting reuse address option");
+        perror("Error while setting reuse address option at open_receiver");
         close(this->sock);
         free(this);
         return NULL;
@@ -138,7 +157,7 @@ rudp_receiver *rudp_open_receiver(unsigned short port)
 
     if (bind(this->sock, (struct sockaddr *)&my_address, sizeof(my_address)) < 0)
     {
-        perror("Error while binding socket");
+        perror("Error while binding socket at open_receiver");
         close(this->sock);
         free(this);
         return NULL;
@@ -150,14 +169,21 @@ rudp_receiver *rudp_open_receiver(unsigned short port)
 
     if (recvfrom(this->sock, &syn_message, sizeof(syn_message), 0, &this->peer_address, &this->peer_address_size) < 0)
     {
-        perror("Error trying to receive SYN message from sender at receiver");
+        perror("Error trying to receive SYN message from sender at open_receiver");
         close(this->sock);
         free(this);
         return NULL;
     }
     if (!validate_checksum(&syn_message))
     {
-        fprintf(stderr, "Error in SYN message checksum\n");
+        fprintf(stderr, "Error in SYN message checksum at open_receiver\n");
+        close(this->sock);
+        free(this);
+        return NULL;
+    }
+    if (!(syn_message.flags & SYN))
+    {
+        fprintf(stderr, "Error in SYN message flags at open_receiver\n");
         close(this->sock);
         free(this);
         return NULL;
@@ -165,18 +191,27 @@ rudp_receiver *rudp_open_receiver(unsigned short port)
 
     rudp_header ack_message; // we will send only the header
     ack_message.len = 0;
-    ack_message.flags = ACK;
+    ack_message.flags = ACK | SYN;
     set_checksum(&ack_message);
 
     if (sendto(this->sock, &ack_message, sizeof(ack_message), 0, &this->peer_address, this->peer_address_size) <= 0)
     {
-        perror("Error sending ACK message at receiver");
+        perror("Error sending SYN-ACK message at open_receiver");
         close(this->sock);
         free(this);
         return NULL;
     }
 
-    // TODO: verify syn message and extract info from it
+    struct timeval timeout;
+    timeout.tv_sec = 0;
+    timeout.tv_usec = ACK_TIMEOUT_US;
+    if (setsockopt(this->sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
+    {
+        perror("Error setting timeout at open_receiver");
+        close(this->sock);
+        free(this);
+        return NULL;
+    }
 
     return this;
 }
@@ -189,13 +224,34 @@ void rudp_close_sender(rudp_sender *this)
     set_checksum(&close_message);
     if (sendto(this->sock, &close_message, sizeof(close_message), 0, &this->peer_address, this->peer_address_size) < 0)
     {
-        perror("Error sending close message");
+        perror("Error sending close message at close_sender");
     }
+    rudp_header ack_message;
+    
+    if (recv(this->sock, &ack_message, sizeof(ack_message), 0) < 0)
+    {
+        perror("Error receiving FIN-ACK at close_sender");
+        close(this->sock);
+        free(this);
+    }
+
+    if (!validate_checksum(&ack_message))
+    {
+        fprintf(stderr, "Error in FIN-ACK checksum at close_sender\n");
+        close(this->sock);
+        free(this);
+    }
+
+    if (!(ack_message.flags & (FIN | ACK)))
+    {
+        fprintf(stderr, "Error in FIN-ACK flags at close_sender\n");
+    }
+
     close(this->sock);
     free(this);
 }
 
-void rudp_close_receiver(rudp_receiver *this)
+void rudp_close_receiver(rudp_receiver *this)   // TODO: what does this do?
 {
     char *close_message = "close";
     sendto(this->sock, close_message, strlen(close_message), 0, &this->peer_address, this->peer_address_size);
@@ -218,7 +274,7 @@ int rudp_send(rudp_sender *this, void *data, size_t size)
         int sent = sendto(this->sock, message + total_sent, message_size - total_sent, 0, &this->peer_address, this->peer_address_size);
         if (sent < 0)
         {
-            perror("Error sending message");
+            perror("Error sending message at send");
             return 0;
         }
         total_sent += sent;
@@ -228,7 +284,12 @@ int rudp_send(rudp_sender *this, void *data, size_t size)
     recv(this->sock, &ack_message, sizeof(ack_message), 0);
     if (!validate_checksum(&ack_message))
     {
-        fprintf(stderr, "Error in ACK checksum\n");
+        fprintf(stderr, "Error in ACK checksum at send\n");
+    }
+
+    if (!(ack_message.flags & ACK))
+    {
+        fprintf(stderr, "Error in ACK message flags at send\n");
     }
     return total_sent;
 }
@@ -236,25 +297,48 @@ int rudp_send(rudp_sender *this, void *data, size_t size)
 int rudp_recv(rudp_receiver *this, void *buffer, size_t size)
 {
     char *message_buffer = malloc(sizeof(rudp_header) + size);
-    int received = recv(this->sock, message_buffer, size, 0);
+    int received = recv(this->sock, message_buffer, sizeof(rudp_header) + size, 0);
     if (received < 0)
     {
-        perror("Error receiving");
-        return -1;
+        perror("Error receiving at recv");
+        return -2;
     }
+    if ((unsigned int) received < sizeof(rudp_header))
+    {
+        fprintf(stderr, "Error at recv: Received too few bytes\n");
+        return -2;
+    }
+
     if (!validate_checksum(message_buffer))
     {
-        fprintf(stderr, "Error in message checksum\n");
+        fprintf(stderr, "Error in message checksum at recv\n");
+        return -2;
     }
-    memcpy(buffer, message_buffer + sizeof(rudp_header), size);
-    free(message_buffer);
+
+    rudp_header *header = (rudp_header *)message_buffer;
+    
     rudp_header ack_message;
     ack_message.len = 0;
     ack_message.flags = ACK;
+    if (header->flags & FIN)
+    {
+        ack_message.flags |= FIN;
+    }
     set_checksum(&ack_message);
     if (sendto(this->sock, &ack_message, sizeof(ack_message), 0, &this->peer_address, this->peer_address_size) < 0)
     {
-        perror("Error sending ack message");
+        perror("Error sending ack message at recv");
     }
+
+    if (header->flags & FIN)
+    {
+        close(this->sock);
+        free(this);
+        return -1;
+    }
+
+    memcpy(buffer, message_buffer + sizeof(rudp_header), size);
+    free(message_buffer);
+
     return received - sizeof(rudp_header);
 }

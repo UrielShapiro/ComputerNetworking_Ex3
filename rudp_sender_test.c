@@ -12,5 +12,6 @@ int main(void)
     rudp_send(sender, message, strlen(message) + 1);
     printf("Sent message.\n");
     rudp_close_sender(sender);
+    printf("Closed correctly\n");
     return 0;
 }
