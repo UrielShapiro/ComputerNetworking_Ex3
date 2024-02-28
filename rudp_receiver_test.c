@@ -10,4 +10,6 @@ int main(void)
     printf("Attempting to receive message...\n");
     rudp_recv(receiver, buffer, sizeof(buffer));
     printf("Received: \"%s\"\n", buffer);
+    rudp_close_receiver(receiver);
+    return 0;
 }

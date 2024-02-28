@@ -11,5 +11,6 @@ int main(void)
     printf("Attempting to send message: \"%s\"...\n", message);
     rudp_send(sender, message, strlen(message) + 1);
     printf("Sent message.\n");
+    rudp_close_sender(sender);
     return 0;
 }
