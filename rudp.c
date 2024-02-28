@@ -10,13 +10,19 @@
 #define DEBUG 0
 
 #define ACK_TIMEOUT_US 100000
+#define MAX_RETRIES 3
 
 unsigned short calculate_checksum(void *data, unsigned int bytes)
 {
-    if (DEBUG) printf(" checksum of data with size %d\n", bytes);
-    if (DEBUG) printf("Data is: ");
-    if (DEBUG) for (size_t i = 0; i < bytes; ++i) printf("%02x", ((char*)data)[i]);
-    if (DEBUG) printf("\n");
+    if (DEBUG)
+        printf(" checksum of data with size %d\n", bytes);
+    if (DEBUG)
+        printf("Data is: ");
+    if (DEBUG)
+        for (size_t i = 0; i < bytes; ++i)
+            printf("%02x", ((char *)data)[i]);
+    if (DEBUG)
+        printf("\n");
     /* Compute Internet Checksum for "len" bytes
      *         beginning at location "data".
      */
@@ -27,7 +33,7 @@ unsigned short calculate_checksum(void *data, unsigned int bytes)
     while (bytes > 1)
     {
         /*  This is the inner loop */
-        sum += *(unsigned short *) data_words++;
+        sum += *(unsigned short *)data_words++;
         bytes -= 2;
     }
 
@@ -38,13 +44,15 @@ unsigned short calculate_checksum(void *data, unsigned int bytes)
     /*  Fold 32-bit sum to 16 bits */
     while (sum >> 16)
         sum = (sum & 0xffff) + (sum >> 16);
-    if (DEBUG) printf("Calculated checksum is %hu\n", ~(unsigned short) sum);
+    if (DEBUG)
+        printf("Calculated checksum is %hu\n", ~(unsigned short)sum);
     return ~(unsigned short)sum;
 }
 
 void set_checksum(void *rudp_message)
 {
-    if (DEBUG) printf("Setting");
+    if (DEBUG)
+        printf("Setting");
     rudp_header *header = (rudp_header *)rudp_message;
     header->checksum = 0;
     header->checksum = calculate_checksum(rudp_message, sizeof(rudp_header) + header->len);
@@ -52,7 +60,8 @@ void set_checksum(void *rudp_message)
 
 int validate_checksum(void *rudp_message)
 {
-    if (DEBUG) printf("Validating");
+    if (DEBUG)
+        printf("Validating");
     return 0 == calculate_checksum(rudp_message, sizeof(rudp_header) + ((rudp_header *)rudp_message)->len);
 }
 
@@ -102,25 +111,37 @@ rudp_sender *rudp_open_sender(char *address, unsigned short port)
     syn_message.flags = SYN;
     set_checksum(&syn_message);
 
-    if (sendto(this->sock, &syn_message, sizeof(syn_message), 0, &this->peer_address, this->peer_address_size) <= 0)
+    unsigned int remaining_retries = MAX_RETRIES;
+    while (remaining_retries > 0)
     {
-        perror("Error sending SYN message at open_sender");
-        close(this->sock);
-        free(this);
-        return NULL;
+        if (sendto(this->sock, &syn_message, sizeof(syn_message), 0, &this->peer_address, this->peer_address_size) <= 0)
+        {
+            perror("Error sending SYN message at open_sender");
+            close(this->sock);
+            free(this);
+            return NULL;
+        }
+
+        rudp_header ack_message;
+        if (recv(this->sock, &ack_message, sizeof(ack_message), 0) < 0)
+        {
+            perror("Error receiveing ACK at open_sender");
+            remaining_retries -= 1;
+            continue;
+        }
+        if (!validate_checksum(&ack_message))
+        {
+            fprintf(stderr, "Error on ACK message at open_sender\n");
+            remaining_retries -= 1;
+            continue;
+        }
+        // if we made it here we were successful
+        break;
     }
 
-    rudp_header ack_message;
-    if (recv(this->sock, &ack_message, sizeof(ack_message), 0) < 0)
+    if (remaining_retries == 0)
     {
-        perror("Error receiveing ACK at open_sender");
-        close(this->sock);
-        free(this);
-        return NULL;
-    }
-    if (!validate_checksum(&ack_message))
-    {
-        fprintf(stderr, "Error on ACK message at open_sender\n");
+        fprintf(stderr, "Ran out of retries to send SYN at open_sender\n");
         close(this->sock);
         free(this);
         return NULL;
@@ -150,7 +171,7 @@ rudp_receiver *rudp_open_receiver(unsigned short port)
         return NULL;
     }
 
-    struct sockaddr_in my_address = { 0 };
+    struct sockaddr_in my_address = {0};
     my_address.sin_addr.s_addr = INADDR_ANY;
     my_address.sin_family = AF_INET;
     my_address.sin_port = htons(port);
@@ -222,39 +243,50 @@ void rudp_close_sender(rudp_sender *this)
     close_message.len = 0;
     close_message.flags = FIN;
     set_checksum(&close_message);
-    if (sendto(this->sock, &close_message, sizeof(close_message), 0, &this->peer_address, this->peer_address_size) < 0)
+    unsigned int remaining_tries = MAX_RETRIES;
+    while (remaining_tries > 0)
     {
-        perror("Error sending close message at close_sender");
-    }
-    rudp_header ack_message;
-    
-    if (recv(this->sock, &ack_message, sizeof(ack_message), 0) < 0)
-    {
-        perror("Error receiving FIN-ACK at close_sender");
-        close(this->sock);
-        free(this);
+        if (sendto(this->sock, &close_message, sizeof(close_message), 0, &this->peer_address, this->peer_address_size) < 0)
+        {
+            perror("Error sending close message at close_sender");
+            remaining_tries -= 1;
+            continue;
+        }
+
+        rudp_header ack_message;
+        if (recv(this->sock, &ack_message, sizeof(ack_message), 0) < 0)
+        {
+            perror("Error receiving FIN-ACK at close_sender");
+            remaining_tries -= 1;
+            continue;
+        }
+
+        if (!validate_checksum(&ack_message))
+        {
+            fprintf(stderr, "Error in FIN-ACK checksum at close_sender\n");
+            remaining_tries -= 1;
+            continue;
+        }
+
+        if (!(ack_message.flags & (FIN | ACK)))
+        {
+            fprintf(stderr, "Error in FIN-ACK flags at close_sender\n");
+            remaining_tries -= 1;
+            continue;
+        }
     }
 
-    if (!validate_checksum(&ack_message))
+    if (remaining_tries == 0)
     {
-        fprintf(stderr, "Error in FIN-ACK checksum at close_sender\n");
-        close(this->sock);
-        free(this);
-    }
-
-    if (!(ack_message.flags & (FIN | ACK)))
-    {
-        fprintf(stderr, "Error in FIN-ACK flags at close_sender\n");
+        fprintf(stderr, "Ran out of retries to send FIN\n");
     }
 
     close(this->sock);
     free(this);
 }
 
-void rudp_close_receiver(rudp_receiver *this)   // TODO: what does this do?
+void rudp_close_receiver(rudp_receiver *this)
 {
-    char *close_message = "close";
-    sendto(this->sock, close_message, strlen(close_message), 0, &this->peer_address, this->peer_address_size);
     close(this->sock);
     free(this);
 }
@@ -264,33 +296,55 @@ int rudp_send(rudp_sender *this, void *data, size_t size)
     char *message = malloc(sizeof(rudp_header) + size);
     memcpy(message + sizeof(rudp_header), data, size);
     rudp_header *header = (rudp_header *)message;
-    header->len = size; 
+    header->len = size;
     header->flags = 0;
     set_checksum(message);
+
     size_t total_sent = 0;
     size_t message_size = size + sizeof(rudp_header);
-    while (total_sent < message_size)
+
+    unsigned int remaining_retries = MAX_RETRIES;
+    while (remaining_retries > 0)
     {
-        int sent = sendto(this->sock, message + total_sent, message_size - total_sent, 0, &this->peer_address, this->peer_address_size);
-        if (sent < 0)
+        total_sent = 0;
+        while (total_sent < message_size)
         {
-            perror("Error sending message at send");
-            return 0;
+            int sent = sendto(this->sock, message + total_sent, message_size - total_sent, 0, &this->peer_address, this->peer_address_size);
+            if (sent < 0)
+            {
+                perror("Error sending message at send");
+                remaining_retries -= 1;
+                continue;
+            }
+            total_sent += sent;
         }
-        total_sent += sent;
+        rudp_header ack_message;
+        if (recv(this->sock, &ack_message, sizeof(ack_message), 0) < 0)
+        {
+            perror("Error receiving ACK at send");
+            remaining_retries -= 1;
+            continue;
+        }
+        if (!validate_checksum(&ack_message))
+        {
+            fprintf(stderr, "Error in ACK checksum at send\n");
+            remaining_retries -= 1;
+            continue;
+        }
+
+        if (!(ack_message.flags & ACK))
+        {
+            fprintf(stderr, "Error in ACK message flags at send\n");
+            remaining_retries -= 1;
+            continue;
+        }
+
+        // if we made it here we were successful
+        break;
     }
     free(message);
-    rudp_header ack_message;
-    recv(this->sock, &ack_message, sizeof(ack_message), 0);
-    if (!validate_checksum(&ack_message))
-    {
-        fprintf(stderr, "Error in ACK checksum at send\n");
-    }
-
-    if (!(ack_message.flags & ACK))
-    {
-        fprintf(stderr, "Error in ACK message flags at send\n");
-    }
+    if (remaining_retries == 0)
+        return -1;
     return total_sent;
 }
 
@@ -298,12 +352,14 @@ int rudp_recv(rudp_receiver *this, void *buffer, size_t size)
 {
     char *message_buffer = malloc(sizeof(rudp_header) + size);
     int received = recv(this->sock, message_buffer, sizeof(rudp_header) + size, 0);
+
     if (received < 0)
     {
         perror("Error receiving at recv");
         return -2;
     }
-    if ((unsigned int) received < sizeof(rudp_header))
+
+    if ((unsigned int)received < sizeof(rudp_header))
     {
         fprintf(stderr, "Error at recv: Received too few bytes\n");
         return -2;
@@ -316,7 +372,7 @@ int rudp_recv(rudp_receiver *this, void *buffer, size_t size)
     }
 
     rudp_header *header = (rudp_header *)message_buffer;
-    
+
     rudp_header ack_message;
     ack_message.len = 0;
     ack_message.flags = ACK;
@@ -325,15 +381,20 @@ int rudp_recv(rudp_receiver *this, void *buffer, size_t size)
         ack_message.flags |= FIN;
     }
     set_checksum(&ack_message);
-    if (sendto(this->sock, &ack_message, sizeof(ack_message), 0, &this->peer_address, this->peer_address_size) < 0)
+    unsigned int remaining_tries = MAX_RETRIES;
+    while (remaining_tries > 0)
     {
-        perror("Error sending ack message at recv");
+        if (sendto(this->sock, &ack_message, sizeof(ack_message), 0, &this->peer_address, this->peer_address_size) < 0)
+        {
+            perror("Error sending ACK message at recv");
+            remaining_tries -= 1;
+            continue;
+        }
+        break;
     }
 
     if (header->flags & FIN)
     {
-        close(this->sock);
-        free(this);
         return -1;
     }
 
