@@ -9,7 +9,7 @@ int main(void)
     printf("Created sender!\n");
     char *message = "Hello through RUDP!";
     printf("Attempting to send message: \"%s\"...\n", message);
-    rudp_send(sender, message, strlen(message));
+    rudp_send(sender, message, strlen(message) + 1);
     printf("Sent message.\n");
     return 0;
 }
