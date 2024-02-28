@@ -10,7 +10,8 @@
 #define DEBUG 0
 
 #define ACK_TIMEOUT_US 100000
-#define MAX_RETRIES 3
+#define ACK_TIMEOUT_S 1
+#define MAX_RETRIES 5
 
 unsigned short calculate_checksum(void *data, unsigned int bytes)
 {
@@ -96,7 +97,7 @@ rudp_sender *rudp_open_sender(char *address, unsigned short port)
     this->peer_address_size = sizeof(receiver_address);
 
     struct timeval timeout;
-    timeout.tv_sec = 0;
+    timeout.tv_sec = ACK_TIMEOUT_S;
     timeout.tv_usec = ACK_TIMEOUT_US;
     if (setsockopt(this->sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
     {
@@ -114,6 +115,7 @@ rudp_sender *rudp_open_sender(char *address, unsigned short port)
     unsigned int remaining_retries = MAX_RETRIES;
     while (remaining_retries > 0)
     {
+        printf("Attempting SYN, remaining: %d\n", remaining_retries);
         if (sendto(this->sock, &syn_message, sizeof(syn_message), 0, &this->peer_address, this->peer_address_size) <= 0)
         {
             perror("Error sending SYN message at open_sender");
@@ -125,7 +127,7 @@ rudp_sender *rudp_open_sender(char *address, unsigned short port)
         rudp_header ack_message;
         if (recv(this->sock, &ack_message, sizeof(ack_message), 0) < 0)
         {
-            perror("Error receiveing ACK at open_sender");
+            perror("Error receiving ACK at open_sender");
             remaining_retries -= 1;
             continue;
         }
@@ -223,8 +225,8 @@ rudp_receiver *rudp_open_receiver(unsigned short port)
         return NULL;
     }
 
-    struct timeval timeout;
-    timeout.tv_sec = 0;
+    /*struct timeval timeout;
+    timeout.tv_sec = ACK_TIMEOUT_S;
     timeout.tv_usec = ACK_TIMEOUT_US;
     if (setsockopt(this->sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
     {
@@ -232,7 +234,7 @@ rudp_receiver *rudp_open_receiver(unsigned short port)
         close(this->sock);
         free(this);
         return NULL;
-    }
+    }*/
 
     return this;
 }
@@ -246,6 +248,7 @@ void rudp_close_sender(rudp_sender *this)
     unsigned int remaining_tries = MAX_RETRIES;
     while (remaining_tries > 0)
     {
+        printf("Attempting FIN, remaining: %d\n", remaining_tries);  // DEBUG
         if (sendto(this->sock, &close_message, sizeof(close_message), 0, &this->peer_address, this->peer_address_size) < 0)
         {
             perror("Error sending close message at close_sender");
@@ -274,6 +277,8 @@ void rudp_close_sender(rudp_sender *this)
             remaining_tries -= 1;
             continue;
         }
+
+        break;
     }
 
     if (remaining_tries == 0)
@@ -307,6 +312,7 @@ int rudp_send(rudp_sender *this, void *data, size_t size)
     while (remaining_retries > 0)
     {
         total_sent = 0;
+        printf("Attempting send, remaining: %d\n", remaining_retries); // DEBUG
         while (total_sent < message_size)
         {
             int sent = sendto(this->sock, message + total_sent, message_size - total_sent, 0, &this->peer_address, this->peer_address_size);
@@ -378,7 +384,13 @@ int rudp_recv(rudp_receiver *this, void *buffer, size_t size)
     ack_message.flags = ACK;
     if (header->flags & FIN)
     {
+        printf("Received FIN message!\n");
         ack_message.flags |= FIN;
+    }
+    if (header->flags & SYN)
+    {
+        printf("Received extra SYN message!\n");
+        ack_message.flags |= SYN;
     }
     set_checksum(&ack_message);
     unsigned int remaining_tries = MAX_RETRIES;
@@ -398,7 +410,7 @@ int rudp_recv(rudp_receiver *this, void *buffer, size_t size)
         return -1;
     }
 
-    memcpy(buffer, message_buffer + sizeof(rudp_header), size);
+    memcpy(buffer, message_buffer + sizeof(rudp_header), received - sizeof(rudp_header));
     free(message_buffer);
 
     return received - sizeof(rudp_header);
