@@ -7,6 +7,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
+#include <sys/time.h>   // For struct timeval
+
 
 /*
  * @brief The maximum number of clients that the receiver can handle.
@@ -19,7 +21,9 @@
  * @note The default buffer size is 1024.
  */
 #define BUFFER_SIZE 2097152
-#define RECEIVED_FILE_SIZE 2097152
+
+#define RECV_TIMEOUT_US 100000
+#define RECV_TIMEOUT_S 0
 
 typedef struct
 {
@@ -46,6 +50,21 @@ double convertToSpeed(double bytes, double time)
 {
     return convertToMegaBytes(bytes) / (time / 1000);
 }
+int isSocketConnected(int sockfd) { 
+    int error; 
+    socklen_t len = sizeof(error); 
+    int ret = getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &error, &len); 
+     
+    if (ret == 0 && error == 0) { 
+        // Socket is connected 
+        return 1; 
+    } 
+    else 
+    { 
+        // Socket is not connected 
+        return 0; 
+    } 
+} 
 int main(int argc, char **argv)
 {
     size_t i = 0;
@@ -108,7 +127,7 @@ int main(int argc, char **argv)
     // Reset the receiver and sender structures to zeros.
     memset(&receiver, 0, sizeof(receiver));
     memset(&sender, 0, sizeof(sender));
-
+    
     // Try to create a TCP socket (IPv4, stream-based, default protocol).
     sock = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -137,8 +156,11 @@ int main(int argc, char **argv)
     receiver.sin_port = htons(port);
 
     socklen_t len = strlen(algo);
-    setsockopt(sock, IPPROTO_TCP, TCP_CONGESTION, algo, len); // Set the algorithm of congestion control the socket would use.
-
+    if (setsockopt(sock, IPPROTO_TCP, TCP_CONGESTION, algo, len) != 0) // Set the algorithm of congestion control the socket would use.
+    {
+        perror("setsockopt");
+        return -1;
+    }
     // A check to see if the congestion control algorithm passed successfully.
     if (getsockopt(sock, IPPROTO_TCP, TCP_CONGESTION, algo, &len) != 0)
     {
@@ -169,7 +191,6 @@ int main(int argc, char **argv)
     int client_sock = -1;
     // Try to accept a new sender connection.
     client_sock = accept(sock, (struct sockaddr *)&sender, &client_len);
-
     // If the accept call failed, print an error message and return 1.
     if (client_sock < 0)
     {
@@ -177,6 +198,25 @@ int main(int argc, char **argv)
         close(sock);
         return 1;
     }
+
+    struct timeval timeout;
+    timeout.tv_sec = RECV_TIMEOUT_S;
+    timeout.tv_usec = RECV_TIMEOUT_US;
+    if (setsockopt(client_sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
+    {
+        perror("Error setting timeout for the receiver socket\n");
+        close(client_sock);
+        close(sock);
+        return 1;
+    }
+    if (setsockopt(client_sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0)   //Might be unnecessary
+    {
+        perror("Error setting timeout for the receiver socket\n");
+        close(client_sock);
+        close(sock);
+        return 1;
+    }
+
     // Print a message to the standard output to indicate that a new sender has connected.
     if (!format)
         fprintf(stdout, "Client %s:%d connected\n", inet_ntoa(sender.sin_addr), ntohs(sender.sin_port));
@@ -191,8 +231,16 @@ int main(int argc, char **argv)
     Speed_list.data = malloc(sizeof(double));
     Speed_list.capacity = 1;
     Speed_list.size = 0;
+    int starting_message = 0;
+    size_t sizeof_input;
+    while (!starting_message)
+    {
+        starting_message = recv(client_sock, &sizeof_input, sizeof(sizeof_input), 0);
+    }
+    sizeof_input = ntohl(sizeof_input);
+    printf("Size of input: %ld bytes\n", sizeof_input);
     // The receiver's main loop.
-    while (1)
+    while (isSocketConnected(client_sock))
     {
         int bytes_received;
         // Create a buffer to store the received message.
@@ -201,26 +249,32 @@ int main(int argc, char **argv)
         clock_t start, end;
         double time_used_inMS;
         start = clock();
-        while (amount_of_bytes_received < RECEIVED_FILE_SIZE && strcmp(buffer, "Closing connection") != 0)
-        {
+        while (amount_of_bytes_received < sizeof_input && strcmp(buffer, "Closing connection") != 0)
+        {   
             // Receive a message from the sender and store it in the buffer.
             bytes_received = recv(client_sock, buffer, BUFFER_SIZE, 0);
-
+            
             // If the message receiving failed, print an error message and return 1.
             if (bytes_received < 0)
             {
-                perror("recv(2)");
+                perror("Reached timeout\n");
                 close(client_sock);
                 close(sock);
                 return 1;
+            }
+            else if (!format)
+            {
+                printf("Received %d bytes\n", bytes_received);
             }
             amount_of_bytes_received += bytes_received;
         }
         end = clock();
         time_used_inMS = 1000 * (double)(end - start) / CLOCKS_PER_SEC; // Calculating the time it took for the message to be received.
-        addToList(&Times_list, time_used_inMS);
+        if (time_used_inMS > 0)
+            addToList(&Times_list, time_used_inMS);
         double speed = convertToSpeed(amount_of_bytes_received, time_used_inMS);
-        addToList(&Speed_list, speed);
+        if (speed > 0)
+            addToList(&Speed_list, speed);
         if (!format)
         {
             printf("Time taken to receive that messege: %f ms\n", time_used_inMS);
@@ -233,24 +287,20 @@ int main(int argc, char **argv)
 
         if (!format)
             fprintf(stdout, "Received %ld bytes from the sender %s:%d\n", amount_of_bytes_received, inet_ntoa(sender.sin_addr), ntohs(sender.sin_port));
-        if(format && strcmp(buffer, "Closing connection") != 0)
+        if (format && strcmp(buffer, "Closing connection") != 0)
         {
             printf("%ld,%f,%f\n", run, time_used_inMS, (double)convertToMegaBytes(amount_of_bytes_received) / (time_used_inMS / 1000));
-            run++;
         }
-        
-        
+        run++;
         // If the received message is "Closing connection", close the sender's socket and return 0.
         if (strcmp(buffer, "Closing connection") == 0)
         {
-            if (!format)
-                fprintf(stdout, "Sender finished!\n");
+
             close(client_sock);
             if (!format)
                 fprintf(stdout, "Client %s:%d disconnected\n", inet_ntoa(sender.sin_addr), ntohs(sender.sin_port));
-            if (!format)
-                fprintf(stdout, "Server finished!\n");
             close(sock);
+            if(!format) fprintf(stdout, "Closing connection!\n");
             double avg_time = 0;
             double avg_speed = 0;
             for (size_t i = 0; i < Times_list.size; i++)
@@ -261,17 +311,19 @@ int main(int argc, char **argv)
             avg_time = avg_time / Times_list.size;
             avg_speed = avg_speed / Speed_list.size;
             if (!format)
+            {
                 printf("Average time taken to receive a message: %f\n", avg_time);
-            if (!format)
                 printf("Average speed: %f\n", avg_speed);
-            if(format)
+                printf("Number of runs: %ld\n", run);
+            }
+            if (format)
             {
                 printf("Average,%f,%f\n", avg_time, avg_speed);
             }
             free(Times_list.data);
+            free(Speed_list.data);
             return 0;
         }
     }
-
     return 0;
 }
