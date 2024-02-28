@@ -164,7 +164,7 @@ int main(int argc, char **argv)
                 close(sock);
                 return 1;
             }
-            fprintf(stdout, "Sent %d bytes to the receiver!\n", bytes_sent);
+            fprintf(stdout, "Sent %d bytes to the receiver!, for the %ld time\n", bytes_sent, i);
         }
     }
     free(message);

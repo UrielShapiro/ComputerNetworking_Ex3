@@ -28,21 +28,24 @@ typedef struct
     size_t size;
 } ArrayList;
 
-void addTimeToList(ArrayList *list, double time)
+void addToList(ArrayList *list, double num)
 {
     if (list->size == list->capacity)
     {
         list->data = realloc(list->data, sizeof(double) * (list->capacity *= 2));
     }
-    list->data[list->size++] = time;
+    list->data[list->size++] = num;
 }
 
-int convertToMegaBytes(size_t bytes)
+double convertToMegaBytes(size_t bytes)
 {
     size_t converstion = 1024 * 1024;
     return bytes / converstion;
 }
-
+double convertToSpeed(double bytes, double time)
+{
+    return convertToMegaBytes(bytes) / (time / 1000);
+}
 int main(int argc, char **argv)
 {
     size_t i = 0;
@@ -183,6 +186,11 @@ int main(int argc, char **argv)
     Times_list.data = malloc(sizeof(double));
     Times_list.capacity = 1;
     Times_list.size = 0;
+
+    ArrayList Speed_list;
+    Speed_list.data = malloc(sizeof(double));
+    Speed_list.capacity = 1;
+    Speed_list.size = 0;
     // The receiver's main loop.
     while (1)
     {
@@ -210,10 +218,14 @@ int main(int argc, char **argv)
         }
         end = clock();
         time_used_inMS = 1000 * (double)(end - start) / CLOCKS_PER_SEC; // Calculating the time it took for the message to be received.
-        if (format == 0)
+        addToList(&Times_list, time_used_inMS);
+        double speed = convertToSpeed(amount_of_bytes_received, time_used_inMS);
+        addToList(&Speed_list, speed);
+        if (!format)
+        {
             printf("Time taken to receive that messege: %f ms\n", time_used_inMS);
-        addTimeToList(&Times_list, time_used_inMS);
-
+            printf("Speed: %f MB/s\n", speed);
+        }
         // Ensure that the buffer is null-terminated, no matter what message was received.
         // This is important to avoid SEGFAULTs when printing the buffer.
         if (buffer[BUFFER_SIZE - 1] != '\0')
@@ -221,7 +233,7 @@ int main(int argc, char **argv)
 
         if (!format)
             fprintf(stdout, "Received %ld bytes from the sender %s:%d\n", amount_of_bytes_received, inet_ntoa(sender.sin_addr), ntohs(sender.sin_port));
-        if(format)
+        if(format && strcmp(buffer, "Closing connection") != 0)
         {
             printf("%ld,%f,%f\n", run, time_used_inMS, (double)convertToMegaBytes(amount_of_bytes_received) / (time_used_inMS / 1000));
             run++;
@@ -239,14 +251,23 @@ int main(int argc, char **argv)
             if (!format)
                 fprintf(stdout, "Server finished!\n");
             close(sock);
-            double avg = 0;
+            double avg_time = 0;
+            double avg_speed = 0;
             for (size_t i = 0; i < Times_list.size; i++)
             {
-                avg += Times_list.data[i];
+                avg_time += Times_list.data[i];
+                avg_speed += Speed_list.data[i];
             }
-            avg = avg / Times_list.size;
+            avg_time = avg_time / Times_list.size;
+            avg_speed = avg_speed / Speed_list.size;
             if (!format)
-                printf("Average time taken to receive a message: %f\n", avg);
+                printf("Average time taken to receive a message: %f\n", avg_time);
+            if (!format)
+                printf("Average speed: %f\n", avg_speed);
+            if(format)
+            {
+                printf("Average,%f,%f\n", avg_time, avg_speed);
+            }
             free(Times_list.data);
             return 0;
         }
