@@ -4,19 +4,25 @@
 int main(void)
 {
     rudp_receiver *receiver = rudp_open_receiver(1025);
-    if (!receiver) return 1;
+    if (!receiver)
+        return 1;
     printf("Created receiver!\n");
     char buffer[1024];
     printf("Attempting to receive message...\n");
-    rudp_recv(receiver, buffer, sizeof(buffer));
-    printf("Received: \"%s\"\n", buffer);
-    if (rudp_recv(receiver, NULL, 0) == -1)
+    int recv_result;
+    do
     {
-        printf("Sender closed\n");
+        recv_result = rudp_recv(receiver, buffer, sizeof(buffer));
+    } while (recv_result != -2 && recv_result != -1);
+    if (recv_result == -1)
+    {
+        printf("Received: \"%s\"\n", buffer);
+        rudp_close_receiver(receiver);
+        printf("Sender closed the connection\n");
     }
     else
     {
-        printf("Sender sent non-close\n");
+        printf("Errored out\n");
     }
     return 0;
 }
