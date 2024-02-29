@@ -13,7 +13,6 @@
 #define MB2FILE_SIZE 2097152
 #define FILE_SIZE MB2FILE_SIZE
 #define REPEAT_END_MESSAGE 3
-#define END_WAIT_TIME_SEC 1
 #define FIN_MESSAGE "Closing connection"
 
 #define RECV_TIMEOUT_US 10000
@@ -224,13 +223,11 @@ int main(int argc, char **argv)
         }
     }
     printf("Sent ending messege to the receiver\n");
-    // If the message sending failed, print an error message and return 1.
 
-    sleep(END_WAIT_TIME_SEC);
     // Close the socket with the receiver.
     close(sock);
 
-    fprintf(stdout, "Connection closed!\n");
+    printf("Connection closed!\n");
 
     // Return 0 to indicate that the client ran successfully.
     return 0;

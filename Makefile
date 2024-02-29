@@ -2,7 +2,7 @@
 CC = gcc
 
 # Flags for the compiler.
-CFLAGS = -O3 -Wall -Wextra -Werror -ggdb -std=c99 -pedantic
+CFLAGS = -O0 -Wall -Wextra -Werror -ggdb -std=c99 -pedantic
 
 # Command to remove files.
 RM = rm -f

@@ -8,8 +8,8 @@
 #include <sys/time.h>   // For struct timeval
 
 // debug modes
-#define DEBUG 0
-#define CHECKSUM_DEBUG 0
+// #define DEBUG
+// #define CHECKSUM_DEBUG
 
 // parameters of the protocol
 #define ACK_TIMEOUT_US 100000
@@ -25,14 +25,13 @@
 
 unsigned short calculate_checksum(void *data, unsigned int bytes)
 {
-    if (CHECKSUM_DEBUG)
-    {
-        printf(" checksum of data with size %d\n", bytes);
-        printf("Data is: ");
-        for (size_t i = 0; i < bytes; ++i)
-            printf("%02x", ((char *)data)[i]);
-        printf("\n");
-    }
+#ifdef CHECKSUM_DEBUG
+    printf(" checksum of data with size %d\n", bytes);
+    printf("Data is: ");
+    // for (size_t i = 0; i < bytes; ++i)
+    //     printf("%02x", ((char *)data)[i]);
+    printf("\n");
+#endif
     /* Compute Internet Checksum for "len" bytes
      *         beginning at location "data".
      */
@@ -54,18 +53,20 @@ unsigned short calculate_checksum(void *data, unsigned int bytes)
     /*  Fold 32-bit sum to 16 bits */
     while (sum >> 16)
         sum = (sum & 0xffff) + (sum >> 16);
-    if (CHECKSUM_DEBUG)
-        printf("Calculated checksum is %hu\n", ~(unsigned short)sum);
+#ifdef CHECKSUM_DEBUG
+    printf("Calculated checksum is %hu\n", ~(unsigned short)sum);
+#endif
     return ~(unsigned short)sum;
 }
 
 /**
  * Sets the checksum of a message
-*/
+ */
 void set_checksum(void *rudp_message)
 {
-    if (CHECKSUM_DEBUG)
-        printf("Setting");
+#ifdef CHECKSUM_DEBUG
+    printf("Setting");
+#endif
     rudp_header *header = (rudp_header *)rudp_message;
     header->checksum = 0;
     header->checksum = calculate_checksum(rudp_message, sizeof(rudp_header) + header->len);
@@ -73,11 +74,12 @@ void set_checksum(void *rudp_message)
 
 /**
  * Validates the checksum of a message
-*/
+ */
 int validate_checksum(void *rudp_message)
 {
-    if (CHECKSUM_DEBUG)
-        printf("Validating");
+#ifdef CHECKSUM_DEBUG
+    printf("Validating");
+#endif
     return 0 == calculate_checksum(rudp_message, sizeof(rudp_header) + ((rudp_header *)rudp_message)->len);
 }
 
@@ -131,8 +133,9 @@ rudp_sender *rudp_open_sender(char *address, unsigned short port)
     int successful = 0;
     for (remaining_tries = MAX_RETRIES; remaining_tries > 0 && !successful; --remaining_tries)
     {
-        if (DEBUG)
-            printf("Attempting SYN, remaining: %d\n", remaining_tries);
+#ifdef DEBUG
+        printf("Attempting SYN, remaining: %d\n", remaining_tries);
+#endif
         if (sendto(this->sock, &syn_message, sizeof(syn_message), 0, &this->peer_address, this->peer_address_size) <= 0)
         {
             perror("Error sending SYN message at open_sender");
@@ -253,8 +256,9 @@ void rudp_close_sender(rudp_sender *this)
     int successful = 0;
     for (remaining_tries = MAX_RETRIES; remaining_tries > 0 && !successful; --remaining_tries)
     {
-        if (DEBUG)
-            printf("Attempting FIN, remaining: %d\n", remaining_tries); // DEBUG
+#ifdef DEBUG
+        printf("Attempting FIN, remaining: %d\n", remaining_tries);
+#endif
         if (sendto(this->sock, &close_message, sizeof(close_message), 0, &this->peer_address, this->peer_address_size) < 0)
         {
             perror("Error sending close message at close_sender");
@@ -315,13 +319,15 @@ int rudp_send_segment(rudp_sender *this, void *data, size_t size, unsigned short
     int successful = 0;
     for (remaining_tries = MAX_RETRIES; remaining_tries > 0 && !successful; --remaining_tries)
     {
-        if (DEBUG)
-            printf("Attempting send, remaining: %d\n", remaining_tries);
+#ifdef DEBUG
+        printf("Attempting send, remaining: %d\n", remaining_tries);
+#endif
         int sent = sendto(this->sock, message, message_size, 0, &this->peer_address, this->peer_address_size);
         if (sent < 0)
         {
-            if (DEBUG)
-                fprintf(stderr, "message_size = %zu\n", message_size);
+#ifdef DEBUG
+            fprintf(stderr, "message_size = %zu\n", message_size);
+#endif
             perror("Error sending message at send_segment");
             continue;
         }
@@ -421,8 +427,9 @@ int rudp_recv(rudp_receiver *this, void *buffer, size_t size)
             }
         }
 
-        if (DEBUG)
-            printf("received = %d\n", received);
+#ifdef DEBUG
+        printf("received = %d\n", received);
+#endif
 
         if (received < 0)
         {
@@ -454,14 +461,16 @@ int rudp_recv(rudp_receiver *this, void *buffer, size_t size)
         ack_message.segment_num = header->segment_num;
         if (header->flags & FIN)
         {
-            if (DEBUG)
-                printf("Received FIN message!\n");
+#ifdef DEBUG
+            printf("Received FIN message!\n");
+#endif
             ack_message.flags |= FIN;
         }
         if (header->flags & SYN)
         {
-            if (DEBUG)
-                printf("Received extra SYN message!\n");
+#ifdef DEBUG
+            printf("Received extra SYN message!\n");
+#endif
             ack_message.flags |= SYN;
         }
         set_checksum(&ack_message);
@@ -475,8 +484,9 @@ int rudp_recv(rudp_receiver *this, void *buffer, size_t size)
                 continue;
             }
             successful = 1;
-            if (DEBUG)
-                printf("sent ack for segment number %hu\n", expected_segment_num);
+#ifdef DEBUG
+            printf("sent ack for segment number %hu\n", expected_segment_num);
+#endif
         }
 
         if (header->flags & FIN)
@@ -493,8 +503,9 @@ int rudp_recv(rudp_receiver *this, void *buffer, size_t size)
         }
         if (expected_segment_num == header->segment_num) // otherwise duplicate message
         {
-            if (DEBUG)
-                printf("Got valid segment!\n");
+#ifdef DEBUG
+            printf("Got valid segment!\n");
+#endif
             memcpy(buffer_bytes + total_received, segment_buffer + sizeof(rudp_header), received - sizeof(rudp_header));
             total_received += received - sizeof(rudp_header);
             expected_segment_num += 1;

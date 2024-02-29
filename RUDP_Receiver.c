@@ -112,7 +112,7 @@ int main(int argc, char **argv)
     if (!format)
     {
         printf("Port: %d\n", port);
-        printf("Auto Run: %d\n", format);
+        printf("Format: %d\n", format);
     }
 
     rudp_receiver *receiver = rudp_open_receiver(port);
@@ -123,9 +123,6 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    // Print a message to the standard output to indicate that a new sender has connected.
-    // if (!format)
-    //     fprintf(stdout, "Client %s:%d connected\n", inet_ntoa(sender.sin_addr), ntohs(sender.sin_port));     // TODO: edit to use sender address?
 
     size_t run = 0;
     ArrayList Times_list;
@@ -145,25 +142,20 @@ int main(int argc, char **argv)
         input_size = rudp_recv(receiver, &sizeof_input, sizeof(sizeof_input));
     }
     sizeof_input = ntohl(sizeof_input);
-    printf("Size of input: %ld bytes\n", sizeof_input);
-    size_t BUFFER_SIZE = sizeof_input;
-    char *buffer = calloc(BUFFER_SIZE, sizeof(char));
+    if(!format) printf("Size of input: %ld bytes\n", sizeof_input);
+    size_t buffer_size = sizeof_input;
+    char *buffer = calloc(buffer_size, sizeof(char));
     unsigned short noEndMessage = TRUE; // Indicator if the end message was received.
     // The receiver's main loop.
     while (noEndMessage)
     {
         int bytes_received = 0;
         // Create a buffer to store the received message.
-        size_t amount_of_bytes_received = 0;
         clock_t start, end;
         double time_used_inMS;
         start = clock();
-        while (amount_of_bytes_received < BUFFER_SIZE && bytes_received >= 0)
-        {
-            bytes_received = rudp_recv(receiver, buffer, BUFFER_SIZE);
-
-            amount_of_bytes_received += bytes_received;
-        }
+        bytes_received = rudp_recv(receiver, buffer, buffer_size);
+        end = clock();
         // If the message receiving failed, print an error message and return 1.
         if (bytes_received == -2)
         {
@@ -172,44 +164,35 @@ int main(int argc, char **argv)
             endFree(&Times_list, &Speed_list, buffer);
             return 1;
         }
-        // Receive a message from the sender and store it in the buffer.
-        end = clock();
+        // If the received message is "Closing connection", close the sender's socket and return 0.
+        if (bytes_received == -1)
+        {
+            noEndMessage = FALSE;
+            continue;
+        }
+        if (bytes_received == 0)
+            continue;
         time_used_inMS = 1000 * (double)(end - start) / CLOCKS_PER_SEC; // Calculating the time it took for the message to be received.
-        if (time_used_inMS > 0)
-            addToList(&Times_list, time_used_inMS);
-        double speed = convertToSpeed(amount_of_bytes_received, time_used_inMS);
-        if (speed > 0)
-            addToList(&Speed_list, speed);
+        double speed = convertToSpeed(bytes_received, time_used_inMS);
+        addToList(&Times_list, time_used_inMS);
+        addToList(&Speed_list, speed);
         if (!format)
         {
             printf("Time taken to receive that messege: %f ms\n", time_used_inMS);
             printf("Speed: %f MB/s\n", speed);
         }
-        // If the received message is "Closing connection", close the sender's socket and return 0.
-        if (bytes_received == -1)
-        {
-            if (!format)
-                fprintf(stdout, "Sender finished!\n");
-            rudp_close_receiver(receiver);
-            endPrints(&Times_list, &Speed_list, run, format);
-            endFree(&Times_list, &Speed_list, buffer);
-            noEndMessage = FALSE;
-        }
-
-        if (!format)
-            fprintf(stdout, "Received %d bytes from the sender\n", bytes_received); // TODO: edit?
         if (format)
         {
             printf("%ld,%f,%f\n", run, time_used_inMS, (double)convertToMegaBytes(bytes_received) / (time_used_inMS / 1000));
-            run++;
         }
         if (!format)
-            fprintf(stdout, "Received %ld bytes from the sender\n", amount_of_bytes_received);
-        if (format && bytes_received != -1)
-        {
-            printf("%ld,%f,%f\n", run, time_used_inMS, (double)convertToMegaBytes(amount_of_bytes_received) / (time_used_inMS / 1000));
-        }
+            printf("Received %d bytes from the sender\n", bytes_received);
         run++;
     }
+    if (!format)
+        printf("Sender finished!\n");
+    rudp_close_receiver(receiver);
+    endPrints(&Times_list, &Speed_list, run, format);
+    endFree(&Times_list, &Speed_list, buffer);
     return 0;
 }

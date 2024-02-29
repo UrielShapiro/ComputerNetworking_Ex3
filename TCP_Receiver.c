@@ -16,12 +16,13 @@
  * @note The default maximum number of clients is 1.
  */
 #define MAX_CLIENTS 1
-#define MAX_TRIES_PER_PACKET 50
 #define RECV_TIMEOUT_US 100000
 #define RECV_TIMEOUT_S 2
 
 #define FIN "Closing connection"
-
+/*
+    * @brief A struct that will act as an ArrayList.
+*/
 typedef struct
 {
     double *data;
@@ -30,7 +31,11 @@ typedef struct
 } ArrayList;
 
 // ------------------------ FUNCTIONS THAT ARE USED IN MAIN() -------------------------------
-
+/*
+    * @brief Add a number to the list.
+    * @param list The list to add the number to.
+    * @param num The number to add to the list.
+*/
 void addToList(ArrayList *list, double num)
 {
     if (list->size == list->capacity)
@@ -39,25 +44,49 @@ void addToList(ArrayList *list, double num)
     }
     list->data[list->size++] = num;
 }
+/*
+    * @brief Convert the bytes to MegaBytes.
+    * @param bytes The amount of bytes.
+    * @return The amount of MegaBytes.
+*/
 double convertToMegaBytes(size_t bytes)
 {
     size_t converstion = 1024 * 1024;
     return bytes / converstion;
 }
+/*
+    * @brief Convert the bytes and time to speed in MB/s.
+    * @param bytes The amount of bytes received.
+    * @param time The time it took to receive the bytes.
+    * @return The speed in MB/s.
+*/
 double convertToSpeed(double bytes, double time)
 {
     return convertToMegaBytes(bytes) / (time / 1000);
 }
-int CloseSockets(int *sock, int *client_sock, unsigned short format, struct sockaddr_in sender)
+/*
+    * @brief Close the sockets and print a message that they were closed.
+    * @param sock The main receiver main socket.
+    * @param client_sock The client socket.
+    * @param format a boolean that says if how the output should be printed.
+    * @param sender The sender's address.
+*/
+void CloseSockets(int *sock, int *client_sock, unsigned short format, struct sockaddr_in sender)
 {
     close(*client_sock);
     if (!format)
-        fprintf(stdout, "Client %s:%d disconnected\n", inet_ntoa(sender.sin_addr), ntohs(sender.sin_port));
+        printf("Client %s:%d disconnected\n", inet_ntoa(sender.sin_addr), ntohs(sender.sin_port));
     close(*sock);
     if (!format)
-        fprintf(stdout, "Closing connection!\n");
-    return 0;
+        printf("Closing connection!\n");
 }
+/*
+    * @brief Print the average time speed, and amount of runs of the messages received.
+    * @param Times_list The list of times.
+    * @param Speed_list The list of speeds.
+    * @param run The amount of runs the program did.
+    * @param format a boolean that says if how the output should be printed.
+*/
 void endPrints(ArrayList *Times_list, ArrayList *Speed_list, size_t run, unsigned short format)
 {
     double avg_time = 0;
@@ -80,6 +109,12 @@ void endPrints(ArrayList *Times_list, ArrayList *Speed_list, size_t run, unsigne
         printf("Average,%f,%f\n", avg_time, avg_speed);
     }
 }
+/*
+    * @brief Free the memory allocated for the lists and the buffer.
+    * @param Times_list The list of times.
+    * @param Speed_list The list of speeds.
+    * @param buffer The buffer.
+*/
 void endFree(ArrayList *Times_list, ArrayList *Speed_list, char *buffer)
 {
     free(Times_list->data);
@@ -160,7 +195,7 @@ int main(int argc, char **argv)
 
     // Try to create a TCP socket (IPv4, stream-based, default protocol).
     sock = socket(AF_INET, SOCK_STREAM, 0);
-
+    // If the socket creation failed, print an error message and return 1.
     if (sock == -1)
     {
         perror("socket(2)");
@@ -217,7 +252,7 @@ int main(int argc, char **argv)
     {
         printf("Listening for incoming connections on port %d...\n", port);
     }
-
+    //-----------------------CONFIGURING THE CLIENT SOCKET AND RECEIVING THE MESSAGES-------------------------
     int client_sock = -1;
     // Try to accept a new sender connection.
     client_sock = accept(sock, (struct sockaddr *)&sender, &client_len);
@@ -232,6 +267,7 @@ int main(int argc, char **argv)
     struct timeval timeout;
     timeout.tv_sec = RECV_TIMEOUT_S;
     timeout.tv_usec = RECV_TIMEOUT_US;
+    // Set a timeout for the receiver socket.
     if (setsockopt(client_sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
     {
         perror("Error setting timeout for the receiver socket\n");
@@ -245,12 +281,12 @@ int main(int argc, char **argv)
         fprintf(stdout, "Client %s:%d connected\n", inet_ntoa(sender.sin_addr), ntohs(sender.sin_port));
 
     size_t run = 0; // will count the amount of packeges received.
-    ArrayList Times_list;
+    ArrayList Times_list;   // A list to store the time it took to receive each message.
     Times_list.data = malloc(sizeof(double));
     Times_list.capacity = 1;
     Times_list.size = 0;
 
-    ArrayList Speed_list;
+    ArrayList Speed_list;   // A list to store the speed of each message received.
     Speed_list.data = malloc(sizeof(double));
     Speed_list.capacity = 1;
     Speed_list.size = 0;
@@ -262,9 +298,9 @@ int main(int argc, char **argv)
         input_size = recv(client_sock, &sizeof_input, sizeof(sizeof_input), 0);
     }
     sizeof_input = ntohl(sizeof_input);
-    printf("Size of input: %ld bytes\n", sizeof_input);
-    size_t BUFFER_SIZE = sizeof_input;
-    char *buffer = calloc(BUFFER_SIZE, sizeof(char));
+    if(!format) printf("Size of input: %ld bytes\n", sizeof_input);
+    size_t buffer_size = sizeof_input;          // The size of the buffer will be the size of the input.
+    char *buffer = calloc(buffer_size, sizeof(char));
     unsigned short noEndMessage = TRUE; // Indicator if the end message was received.
     // The receiver's main loop.
     while (noEndMessage)
@@ -280,10 +316,10 @@ int main(int argc, char **argv)
         while (total_of_bytes_received < sizeof_input && strcmp(buffer, FIN) != 0)
         {
             // Receive a message from the sender and store it in the buffer.
-            bytes_received = recv(client_sock, buffer, BUFFER_SIZE, 0);
+            bytes_received = recv(client_sock, buffer, buffer_size, 0);
 
             // If the message receiving failed, print an error message and return 1.
-            if (bytes_received <= 0)
+            if (bytes_received < 0)
             {
                 perror("Reached timeout");
                 CloseSockets(&sock, &client_sock, format, sender);
@@ -291,15 +327,16 @@ int main(int argc, char **argv)
                 return 1;
             }
             total_of_bytes_received += bytes_received;
-            printf("Still inside the loop: %ld\n", total_of_bytes_received);
         }
         end = clock();
         time_used_inMS = 1000 * (double)(end - start) / CLOCKS_PER_SEC; // Calculating the time it took for the message to be received.
-        if (time_used_inMS > 0)
-            addToList(&Times_list, time_used_inMS);
         double speed = convertToSpeed(total_of_bytes_received, time_used_inMS);
-        if (speed > 0)
+        if (time_used_inMS > 0 && speed > 0)
+        {
+            // Add the time and speed to their respective lists.
+            addToList(&Times_list, time_used_inMS);
             addToList(&Speed_list, speed);
+        }
         if (!format)
         {
             printf("Time taken to receive that messege: %f ms\n", time_used_inMS);
@@ -307,25 +344,26 @@ int main(int argc, char **argv)
         }
 
         if (!format)
-            fprintf(stdout, "Received %ld bytes from the sender %s:%d\n", total_of_bytes_received, inet_ntoa(sender.sin_addr), ntohs(sender.sin_port));
+            printf("Received %ld bytes from the sender %s:%d\n", total_of_bytes_received, inet_ntoa(sender.sin_addr), ntohs(sender.sin_port));
         if (format && strcmp(buffer, FIN) != 0)
         {
-            printf("%ld,%f,%f\n", run, time_used_inMS, (double)convertToMegaBytes(total_of_bytes_received) / (time_used_inMS / 1000));
+            printf("%ld,%f,%f\n", run-1, time_used_inMS, (double)convertToMegaBytes(total_of_bytes_received) / (time_used_inMS / 1000));
         }
-        run++;
+        run++;  // Increment the run counter.
 
         // If the received message is "Closing connection", close the sender's socket and return 0.
         if (strcmp(buffer, FIN) == 0)
         {
             noEndMessage = FALSE;
         }
-        else
+        else if(!format)
         {
             printf("run: %ld\n", run);
         }
     }
+    // Closing the socket, and printing the average time and speed before exiting the program.
     CloseSockets(&sock, &client_sock, format, sender);
-    endPrints(&Times_list, &Speed_list, run, format);
+    endPrints(&Times_list, &Speed_list, run-1, format);
     endFree(&Times_list, &Speed_list, buffer);
     return 0;
 }
