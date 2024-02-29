@@ -43,6 +43,11 @@ char *util_generate_random_data(unsigned int size)
 
 int main(int argc, char **argv)
 {
+    if(argc == 0)
+    {
+        printf("Error! No arguments were given\n");
+        return 1;
+    }
     size_t i = 0;
     char *ip = NULL;
     unsigned short port = 0;
