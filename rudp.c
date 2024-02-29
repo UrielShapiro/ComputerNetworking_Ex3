@@ -7,7 +7,7 @@
 #include <unistd.h>     // For close
 #include <sys/time.h>   // For struct timeval
 
-#define DEBUG 0
+#define DEBUG 1
 
 #define ACK_TIMEOUT_US 100000
 #define ACK_TIMEOUT_S 0
@@ -123,7 +123,8 @@ rudp_sender *rudp_open_sender(char *address, unsigned short port)
     int successful = 0;
     for (remaining_tries = MAX_RETRIES; remaining_tries > 0 && !successful; --remaining_tries)
     {
-        printf("Attempting SYN, remaining: %d\n", remaining_tries);
+        if (DEBUG)
+            printf("Attempting SYN, remaining: %d\n", remaining_tries);
         if (sendto(this->sock, &syn_message, sizeof(syn_message), 0, &this->peer_address, this->peer_address_size) <= 0)
         {
             perror("Error sending SYN message at open_sender");
@@ -244,7 +245,8 @@ void rudp_close_sender(rudp_sender *this)
     int successful = 0;
     for (remaining_tries = MAX_RETRIES; remaining_tries > 0 && !successful; --remaining_tries)
     {
-        printf("Attempting FIN, remaining: %d\n", remaining_tries); // DEBUG
+        if (DEBUG)
+            printf("Attempting FIN, remaining: %d\n", remaining_tries); // DEBUG
         if (sendto(this->sock, &close_message, sizeof(close_message), 0, &this->peer_address, this->peer_address_size) < 0)
         {
             perror("Error sending close message at close_sender");
@@ -304,11 +306,13 @@ int rudp_send_segment(rudp_sender *this, void *data, size_t size, unsigned short
     int successful = 0;
     for (remaining_tries = MAX_RETRIES; remaining_tries > 0 && !successful; --remaining_tries)
     {
-        // printf("Attempting send, remaining: %d\n", remaining_retries); // DEBUG
+        if (DEBUG)
+            printf("Attempting send, remaining: %d\n", remaining_tries);
         int sent = sendto(this->sock, message, message_size, 0, &this->peer_address, this->peer_address_size);
         if (sent < 0)
         {
-            fprintf(stderr, "message_size = %zu\n", message_size); // DEBUG
+            if (DEBUG)
+                fprintf(stderr, "message_size = %zu\n", message_size);
             perror("Error sending message at send_segment");
             continue;
         }
@@ -409,7 +413,8 @@ int rudp_recv(rudp_receiver *this, void *buffer, size_t size)
             }
         }
 
-        printf("received = %d\n", received);
+        if (DEBUG)
+            printf("received = %d\n", received);
 
         if (received < 0)
         {
@@ -438,12 +443,14 @@ int rudp_recv(rudp_receiver *this, void *buffer, size_t size)
         ack_message.segment_num = header->segment_num;
         if (header->flags & FIN)
         {
-            printf("Received FIN message!\n");
+            if (DEBUG)
+                printf("Received FIN message!\n");
             ack_message.flags |= FIN;
         }
         if (header->flags & SYN)
         {
-            printf("Received extra SYN message!\n");
+            if (DEBUG)
+                printf("Received extra SYN message!\n");
             ack_message.flags |= SYN;
         }
         set_checksum(&ack_message);
@@ -457,7 +464,8 @@ int rudp_recv(rudp_receiver *this, void *buffer, size_t size)
                 continue;
             }
             successful = 1;
-            printf("sent ack for segment number %hu\n", expected_segment_num);
+            if (DEBUG)
+                printf("sent ack for segment number %hu\n", expected_segment_num);
         }
 
         if (header->flags & FIN)
@@ -472,7 +480,8 @@ int rudp_recv(rudp_receiver *this, void *buffer, size_t size)
         }
         if (expected_segment_num == header->segment_num) // otherwise duplicate message
         {
-            printf("Got valid segment!\n");
+            if (DEBUG)
+                printf("Got valid segment!\n");
             memcpy(buffer_bytes + total_received, segment_buffer + sizeof(rudp_header), received - sizeof(rudp_header));
             total_received += received - sizeof(rudp_header);
             expected_segment_num += 1;
