@@ -43,8 +43,13 @@ char *util_generate_random_data(unsigned int size)
 
 int main(int argc, char **argv)
 {
+    if(argc == 1)
+    {
+        printf("Error! No arguments were given\n");
+        return 1;
+    }
     size_t i = 0;
-    char *ip = NULL;
+    char *ip = "127.0.0.1";
     unsigned short port = 0;
     char *algo = NULL;
     unsigned short auto_run = 0;
@@ -78,7 +83,7 @@ int main(int argc, char **argv)
         }
         i++;
     }
-    if (ip == NULL || port == 0 || algo == NULL)
+    if (port == 0 || algo == NULL)
     {
         printf("Invalid arguments\n");
         return 1;

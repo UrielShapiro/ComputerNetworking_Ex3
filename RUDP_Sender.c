@@ -9,6 +9,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
+#include <sys/time.h> // For struct timeval
+#include "rudp.h"
 
 #define FILE_SIZE 2097152
 
@@ -36,8 +38,13 @@ char *util_generate_random_data(unsigned int size)
 
 int main(int argc, char **argv)
 {
+    if (argc == 1)
+    {
+        printf("Error! No arguments were given\n");
+        return 1;
+    }
     size_t i = 0;
-    char *ip = NULL;
+    char *ip = "127.0.0.1";
     unsigned short port = 0;
     unsigned short auto_run = 0;
     while ((int)i < argc)
@@ -61,7 +68,7 @@ int main(int argc, char **argv)
         }
         i++;
     }
-    if (ip == NULL || port == 0)
+    if (port == 0)
     {
         perror("Invalid arguments\n");
         return 1;
@@ -71,59 +78,71 @@ int main(int argc, char **argv)
     if (auto_run != 0)
         printf("Auto run: %d\n", auto_run);
 
-    fprintf(stdout, "Connecting to %s:%d...\n", ip, port);
+    printf("Connecting to %s:%d...\n", ip, port);
+    //----------------------------------CONFIGURING THE SOCKET-------------------------------------------------
     rudp_sender *sender = rudp_open_sender(ip, port);
     if (!sender)
     {
-        fprintf(stderr, "Failed to connect to open sender\n");
+        printf("Failed to connect to open sender\n");
         return 1;
     }
-    fprintf(stdout, "Successfully connected to the receiver!\n");
+    printf("Successfully connected to the receiver!\n");
 
     char *message = util_generate_random_data(FILE_SIZE);
 
+    // Reporting the size of the message.
+    uint32_t report_file_size = htonl(FILE_SIZE);
+    int starting_message = rudp_send(sender, (char *)&report_file_size, sizeof(report_file_size));
+    if (starting_message <= 0)
+    {
+        perror("rudp_send failed\n");
+        rudp_close_sender(sender);
+        return 1;
+    }
     int bytes_sent;
-    char choice = 'Y';
+    char choice;
     if (auto_run == 0)
     {
         do
         {
             // Try to send the message to the receiver using the socket.
             bytes_sent = rudp_send(sender, message, FILE_SIZE);
-            // If the message sending failed, print an error message and return 1.
             // If no data was sent, print an error message and return 1. Only occurs if the connection was closed.
             if (bytes_sent <= 0)
             {
-                fprintf(stderr, "rudp_send failed\n");
+                perror("rudp_send failed\n");
                 rudp_close_sender(sender);
                 return 1;
             }
 
             fprintf(stdout, "Sent %d bytes to the receiver!\n", bytes_sent);
             printf("Do you want to send again? (Y/n)\n");
-            choice = getchar();
-            getchar();
+            do
+            {
+                choice = getchar(); //Getting a char from the user untill he writes 'y', 'Y', 'n', 'N'
+            } while (choice != 'n' && choice != 'N' && choice != 'y' && choice != 'Y');
+
         } while (choice != 'n' && choice != 'N');
     }
     else
     {
-        for (size_t i = 0; i < auto_run; i++)
+        for (size_t i = 1; i <= auto_run; i++)
         {
             bytes_sent = rudp_send(sender, message, FILE_SIZE);
             if (bytes_sent <= 0)
             {
-                fprintf(stderr, "rudp_send failed\n");
+                perror("rudp_send failed\n");
                 rudp_close_sender(sender);
                 return 1;
             }
-            fprintf(stdout, "Sent %d bytes to the receiver!\n", bytes_sent);
+            printf("Sent %d bytes to the receiver!\n", bytes_sent);
         }
     }
     free(message);
     
     rudp_close_sender(sender);
 
-    fprintf(stdout, "Connection closed!\n");
+    printf("Connection closed!\n");
 
     // Return 0 to indicate that the client ran successfully.
     return 0;
