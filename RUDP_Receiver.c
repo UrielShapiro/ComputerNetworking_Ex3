@@ -177,6 +177,7 @@ int main(int argc, char **argv)
     size_t buffer_size = sizeof_input;
     char *buffer = calloc(buffer_size, sizeof(char));
     unsigned short noEndMessage = TRUE; // Indicator if the end message was received.
+    if(format) printf("Run number,Time (ms),Speed (MB/s\n");
     // The receiver's main loop.
     while (noEndMessage)
     {

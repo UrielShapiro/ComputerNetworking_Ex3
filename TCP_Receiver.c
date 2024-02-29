@@ -21,8 +21,8 @@
 
 #define FIN "Closing connection"
 /*
-    * @brief A struct that will act as an ArrayList.
-*/
+ * @brief A struct that will act as an ArrayList.
+ */
 typedef struct
 {
     double *data;
@@ -32,10 +32,10 @@ typedef struct
 
 // ------------------------ FUNCTIONS THAT ARE USED IN MAIN() -------------------------------
 /*
-    * @brief Add a number to the list.
-    * @param list The list to add the number to.
-    * @param num The number to add to the list.
-*/
+ * @brief Add a number to the list.
+ * @param list The list to add the number to.
+ * @param num The number to add to the list.
+ */
 void addToList(ArrayList *list, double num)
 {
     if (list->size == list->capacity)
@@ -45,32 +45,32 @@ void addToList(ArrayList *list, double num)
     list->data[list->size++] = num;
 }
 /*
-    * @brief Convert the bytes to MegaBytes.
-    * @param bytes The amount of bytes.
-    * @return The amount of MegaBytes.
-*/
+ * @brief Convert the bytes to MegaBytes.
+ * @param bytes The amount of bytes.
+ * @return The amount of MegaBytes.
+ */
 double convertToMegaBytes(size_t bytes)
 {
     size_t converstion = 1024 * 1024;
     return bytes / converstion;
 }
 /*
-    * @brief Convert the bytes and time to speed in MB/s.
-    * @param bytes The amount of bytes received.
-    * @param time The time it took to receive the bytes.
-    * @return The speed in MB/s.
-*/
+ * @brief Convert the bytes and time to speed in MB/s.
+ * @param bytes The amount of bytes received.
+ * @param time The time it took to receive the bytes.
+ * @return The speed in MB/s.
+ */
 double convertToSpeed(double bytes, double time)
 {
     return convertToMegaBytes(bytes) / (time / 1000);
 }
 /*
-    * @brief Close the sockets and print a message that they were closed.
-    * @param sock The main receiver main socket.
-    * @param client_sock The client socket.
-    * @param format a boolean that says if how the output should be printed.
-    * @param sender The sender's address.
-*/
+ * @brief Close the sockets and print a message that they were closed.
+ * @param sock The main receiver main socket.
+ * @param client_sock The client socket.
+ * @param format a boolean that says if how the output should be printed.
+ * @param sender The sender's address.
+ */
 void CloseSockets(int *sock, int *client_sock, unsigned short format, struct sockaddr_in sender)
 {
     close(*client_sock);
@@ -81,12 +81,12 @@ void CloseSockets(int *sock, int *client_sock, unsigned short format, struct soc
         printf("Closing connection!\n");
 }
 /*
-    * @brief Print the average time speed, and amount of runs of the messages received.
-    * @param Times_list The list of times.
-    * @param Speed_list The list of speeds.
-    * @param run The amount of runs the program did.
-    * @param format a boolean that says if how the output should be printed.
-*/
+ * @brief Print the average time speed, and amount of runs of the messages received.
+ * @param Times_list The list of times.
+ * @param Speed_list The list of speeds.
+ * @param run The amount of runs the program did.
+ * @param format a boolean that says if how the output should be printed.
+ */
 void endPrints(ArrayList *Times_list, ArrayList *Speed_list, size_t run, unsigned short format)
 {
     double avg_time = 0;
@@ -110,11 +110,11 @@ void endPrints(ArrayList *Times_list, ArrayList *Speed_list, size_t run, unsigne
     }
 }
 /*
-    * @brief Free the memory allocated for the lists and the buffer.
-    * @param Times_list The list of times.
-    * @param Speed_list The list of speeds.
-    * @param buffer The buffer.
-*/
+ * @brief Free the memory allocated for the lists and the buffer.
+ * @param Times_list The list of times.
+ * @param Speed_list The list of speeds.
+ * @param buffer The buffer.
+ */
 void endFree(ArrayList *Times_list, ArrayList *Speed_list, char *buffer)
 {
     free(Times_list->data);
@@ -280,26 +280,29 @@ int main(int argc, char **argv)
     if (!format)
         fprintf(stdout, "Client %s:%d connected\n", inet_ntoa(sender.sin_addr), ntohs(sender.sin_port));
 
-    size_t run = 0; // will count the amount of packeges received.
-    ArrayList Times_list;   // A list to store the time it took to receive each message.
+    size_t run = 0;       // will count the amount of packeges received.
+    ArrayList Times_list; // A list to store the time it took to receive each message.
     Times_list.data = malloc(sizeof(double));
     Times_list.capacity = 1;
     Times_list.size = 0;
 
-    ArrayList Speed_list;   // A list to store the speed of each message received.
+    ArrayList Speed_list; // A list to store the speed of each message received.
     Speed_list.data = malloc(sizeof(double));
     Speed_list.capacity = 1;
     Speed_list.size = 0;
     int input_size = 0;
     size_t sizeof_input;
+
+    if(format) printf("Run number,Time (ms),Speed (MB/s\n");
     while (!input_size)
     {
         // Before sending the packege, the sender will send the weight of the package in bytes.
         input_size = recv(client_sock, &sizeof_input, sizeof(sizeof_input), 0);
     }
     sizeof_input = ntohl(sizeof_input);
-    if(!format) printf("Size of input: %ld bytes\n", sizeof_input);
-    size_t buffer_size = sizeof_input;          // The size of the buffer will be the size of the input.
+    if (!format)
+        printf("Size of input: %ld bytes\n", sizeof_input);
+    size_t buffer_size = sizeof_input; // The size of the buffer will be the size of the input.
     char *buffer = calloc(buffer_size, sizeof(char));
     unsigned short noEndMessage = TRUE; // Indicator if the end message was received.
     // The receiver's main loop.
@@ -326,7 +329,7 @@ int main(int argc, char **argv)
                 endFree(&Times_list, &Speed_list, buffer);
                 return 1;
             }
-            if(bytes_received == 0) // If the sender disconnected, break the loop.
+            if (bytes_received == 0) // If the sender disconnected, break the loop.
             {
                 noEndMessage = FALSE;
                 break;
@@ -350,25 +353,27 @@ int main(int argc, char **argv)
 
         if (!format)
             printf("Received %ld bytes from the sender %s:%d\n", total_of_bytes_received, inet_ntoa(sender.sin_addr), ntohs(sender.sin_port));
-        if (format && strcmp(buffer, FIN) != 0)
+        if (format && strcmp(buffer, FIN) != 0 && noEndMessage)
         {
             printf("%ld,%f,%f\n", run, time_used_inMS, (double)convertToMegaBytes(total_of_bytes_received) / (time_used_inMS / 1000));
         }
-        run++;  // Increment the run counter.
-
+        if (noEndMessage)
+        {
+            run++; // Increment the run counter.
+        }
         // If the received message is "Closing connection", close the sender's socket and return 0.
         if (strcmp(buffer, FIN) == 0)
         {
             noEndMessage = FALSE;
         }
-        else if(!format)
+        else if (!format)
         {
             printf("run: %ld\n", run);
         }
     }
     // Closing the socket, and printing the average time and speed before exiting the program.
     CloseSockets(&sock, &client_sock, format, sender);
-    endPrints(&Times_list, &Speed_list, run-1, format);
+    endPrints(&Times_list, &Speed_list, run - 1, format);
     endFree(&Times_list, &Speed_list, buffer);
     return 0;
 }
