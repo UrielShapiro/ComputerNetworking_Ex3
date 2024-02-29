@@ -85,7 +85,7 @@ rudp_sender *rudp_open_sender(char *address, unsigned short port)
         return NULL;
     }
 
-    struct sockaddr_in receiver_address;
+    struct sockaddr_in receiver_address = {0};
 
     memset(&receiver_address, 0, sizeof(receiver_address));
 
@@ -114,7 +114,7 @@ rudp_sender *rudp_open_sender(char *address, unsigned short port)
         return NULL;
     }
 
-    rudp_header syn_message; // we will send only the header
+    rudp_header syn_message = {0}; // we will send only the header
     syn_message.len = 0;
     syn_message.flags = SYN;
     set_checksum(&syn_message);
@@ -133,7 +133,7 @@ rudp_sender *rudp_open_sender(char *address, unsigned short port)
             return NULL;
         }
 
-        rudp_header ack_message;
+        rudp_header ack_message = {0};
         if (recv(this->sock, &ack_message, sizeof(ack_message), 0) < 0)
         {
             perror("Error receiving ACK at open_sender");
@@ -195,7 +195,7 @@ rudp_receiver *rudp_open_receiver(unsigned short port)
 
     this->peer_address_size = sizeof(this->peer_address);
 
-    rudp_header syn_message;
+    rudp_header syn_message = {0};
 
     if (recvfrom(this->sock, &syn_message, sizeof(syn_message), 0, &this->peer_address, &this->peer_address_size) < 0)
     {
@@ -219,7 +219,7 @@ rudp_receiver *rudp_open_receiver(unsigned short port)
         return NULL;
     }
 
-    rudp_header ack_message; // we will send only the header
+    rudp_header ack_message = {0}; // we will send only the header
     ack_message.len = 0;
     ack_message.flags = ACK | SYN;
     set_checksum(&ack_message);
@@ -237,7 +237,7 @@ rudp_receiver *rudp_open_receiver(unsigned short port)
 
 void rudp_close_sender(rudp_sender *this)
 {
-    rudp_header close_message;
+    rudp_header close_message = {0};
     close_message.len = 0;
     close_message.flags = FIN;
     set_checksum(&close_message);
@@ -253,7 +253,7 @@ void rudp_close_sender(rudp_sender *this)
             continue;
         }
 
-        rudp_header ack_message;
+        rudp_header ack_message = {0};
         if (recv(this->sock, &ack_message, sizeof(ack_message), 0) < 0)
         {
             perror("Error receiving FIN-ACK at close_sender");
@@ -295,6 +295,7 @@ int rudp_send_segment(rudp_sender *this, void *data, size_t size, unsigned short
     char *message = malloc(sizeof(rudp_header) + size);
     memcpy(message + sizeof(rudp_header), data, size);
     rudp_header *header = (rudp_header *)message;
+    memset(header, 0, sizeof(rudp_header));
     header->len = size;
     header->flags = (more ? MOR : 0);
     header->segment_num = segment_num;
@@ -399,7 +400,7 @@ int rudp_recv(rudp_receiver *this, void *buffer, size_t size)
     {
         int received = recv(this->sock, segment_buffer, sizeof(rudp_header) + MAX_SEGMENT_SIZE, 0);
 
-        if (expected_segment_num == 0)  // only after first message
+        if (expected_segment_num == 0) // only after first message
         {
             // set timeout for subsequent messages
             timeout.tv_sec = RECV_TIMEOUT_S;
@@ -407,8 +408,7 @@ int rudp_recv(rudp_receiver *this, void *buffer, size_t size)
             if (setsockopt(this->sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
             {
                 perror("Error setting timeout at open_receiver");
-                close(this->sock);
-                free(this);
+                free(segment_buffer);
                 return -2;
             }
         }
@@ -419,25 +419,28 @@ int rudp_recv(rudp_receiver *this, void *buffer, size_t size)
         if (received < 0)
         {
             perror("Error receiving at recv");
+            free(segment_buffer);
             return -2;
         }
 
         if ((unsigned int)received < sizeof(rudp_header))
         {
             fprintf(stderr, "Error at recv: Received too few bytes\n");
+            free(segment_buffer);
             return -2;
         }
 
         if (!validate_checksum(segment_buffer))
         {
             fprintf(stderr, "Error in message checksum at recv\n");
+            free(segment_buffer);
             return -2;
         }
 
         rudp_header *header = (rudp_header *)segment_buffer;
         more = header->flags & MOR;
 
-        rudp_header ack_message;
+        rudp_header ack_message = {0};
         ack_message.len = 0;
         ack_message.flags = ACK;
         ack_message.segment_num = header->segment_num;
@@ -470,12 +473,14 @@ int rudp_recv(rudp_receiver *this, void *buffer, size_t size)
 
         if (header->flags & FIN)
         {
+            free(segment_buffer);
             return -1;
         }
 
         if (total_received > size)
         {
-            fprintf(stderr, "Error: total_received > size: %zu > %zu", total_received, size);
+            free(segment_buffer);
+            fprintf(stderr, "Fatal error: total_received > size: %zu > %zu", total_received, size);
             exit(1);
         }
         if (expected_segment_num == header->segment_num) // otherwise duplicate message
