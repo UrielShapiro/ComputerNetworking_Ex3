@@ -293,7 +293,7 @@ int main(int argc, char **argv)
     int input_size = 0;
     size_t sizeof_input;
 
-    if(format) printf("Run number,Time (ms),Speed (MB/s\n");
+    if(format) printf("Time (ms),Speed (MB/s)\n");
     while (!input_size)
     {
         // Before sending the packege, the sender will send the weight of the package in bytes.
