@@ -91,6 +91,7 @@ int main(int argc, char **argv)
     if (sock == -1)
     {
         perror("The socket has failed");
+        free(message);
         return 1;
     }
 
@@ -99,7 +100,8 @@ int main(int argc, char **argv)
     if (inet_pton(AF_INET, ip, &receiver.sin_addr) <= 0)
     {
         perror("inet_pton(3)");
-        close(sock);
+        close(sock);\
+        free(message);
         return 1;
     }
 
@@ -114,12 +116,14 @@ int main(int argc, char **argv)
     if (setsockopt(sock, IPPROTO_TCP, TCP_CONGESTION, algo, len) != 0) // Set the algorithm of congestion control the socket would use.
     {
         perror("setsockopt");
+        free(message);
         return -1;
     }
     // A check to see if the congestion control algorithm passed successfully.
     if (getsockopt(sock, IPPROTO_TCP, TCP_CONGESTION, algo, &len) != 0)
     {
         perror("getsockopt");
+        free(message);
         return -1;
     }
 
