@@ -326,12 +326,17 @@ int main(int argc, char **argv)
                 endFree(&Times_list, &Speed_list, buffer);
                 return 1;
             }
+            if(bytes_received == 0) // If the sender disconnected, break the loop.
+            {
+                noEndMessage = FALSE;
+                break;
+            }
             total_of_bytes_received += bytes_received;
         }
         end = clock();
         time_used_inMS = 1000 * (double)(end - start) / CLOCKS_PER_SEC; // Calculating the time it took for the message to be received.
         double speed = convertToSpeed(total_of_bytes_received, time_used_inMS);
-        if (time_used_inMS > 0 && speed > 0)
+        if (time_used_inMS > 0 && speed > 0 && noEndMessage)
         {
             // Add the time and speed to their respective lists.
             addToList(&Times_list, time_used_inMS);

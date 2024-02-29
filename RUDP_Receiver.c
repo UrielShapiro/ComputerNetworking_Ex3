@@ -19,6 +19,9 @@
  */
 #define MAX_CLIENTS 1
 
+/*
+    * @brief A struct that will act as an ArrayList.
+*/
 typedef struct
 {
     double *data;
@@ -28,6 +31,11 @@ typedef struct
 
 // ------------------------ FUNCTIONS THAT ARE USED IN MAIN() -------------------------------
 
+/*
+    * @brief Add a number to the list.
+    * @param list The list to add the number to.
+    * @param num The number to add to the list.
+*/
 void addToList(ArrayList *list, double time)
 {
     if (list->size == list->capacity)
@@ -36,16 +44,33 @@ void addToList(ArrayList *list, double time)
     }
     list->data[list->size++] = time;
 }
-
+/*
+    * @brief Convert the bytes to MegaBytes.
+    * @param bytes The amount of bytes.
+    * @return The amount of MegaBytes.
+*/
 int convertToMegaBytes(size_t bytes)
 {
     size_t converstion = 1024 * 1024;
     return bytes / converstion;
 }
+/*
+    * @brief Convert the bytes and time to speed in MB/s.
+    * @param bytes The amount of bytes received.
+    * @param time The time it took to receive the bytes.
+    * @return The speed in MB/s.
+*/
 double convertToSpeed(double bytes, double time)
 {
     return convertToMegaBytes(bytes) / (time / 1000);
 }
+/*
+    * @brief Print the average time speed, and amount of runs of the messages received.
+    * @param Times_list The list of times.
+    * @param Speed_list The list of speeds.
+    * @param run The amount of runs the program did.
+    * @param format a boolean that says if how the output should be printed.
+*/
 void endPrints(ArrayList *Times_list, ArrayList *Speed_list, size_t run, unsigned short format)
 {
     double avg_time = 0;
@@ -68,6 +93,12 @@ void endPrints(ArrayList *Times_list, ArrayList *Speed_list, size_t run, unsigne
         printf("Average,%f,%f\n", avg_time, avg_speed);
     }
 }
+/*
+    * @brief Free the memory allocated for the lists and the buffer.
+    * @param Times_list The list of times.
+    * @param Speed_list The list of speeds.
+    * @param buffer The buffer.
+*/
 void endFree(ArrayList *Times_list, ArrayList *Speed_list, char *buffer)
 {
     free(Times_list->data);
@@ -154,7 +185,7 @@ int main(int argc, char **argv)
         clock_t start, end;
         double time_used_inMS;
         start = clock();
-        bytes_received = rudp_recv(receiver, buffer, buffer_size);
+        bytes_received = rudp_recv(receiver, buffer, buffer_size);  // RUDP passes the entire message to the buffer all at once.
         end = clock();
         // If the message receiving failed, print an error message and return 1.
         if (bytes_received == -2)
