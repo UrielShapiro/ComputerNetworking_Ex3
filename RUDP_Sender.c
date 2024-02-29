@@ -36,13 +36,13 @@ char *util_generate_random_data(unsigned int size)
 
 int main(int argc, char **argv)
 {
-    if (argc == 0)
+    if (argc == 1)
     {
         printf("Error! No arguments were given\n");
         return 1;
     }
     size_t i = 0;
-    char *ip = NULL;
+    char *ip = "127.0.0.1";
     unsigned short port = 0;
     unsigned short auto_run = 0;
     while ((int)i < argc)
@@ -66,7 +66,7 @@ int main(int argc, char **argv)
         }
         i++;
     }
-    if (ip == NULL || port == 0)
+    if (port == 0)
     {
         perror("Invalid arguments\n");
         return 1;

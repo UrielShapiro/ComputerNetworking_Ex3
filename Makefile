@@ -9,8 +9,11 @@ RM = rm -f
 
 EXECUTABLES = TCP_Sender TCP_Receiver RUDP_Sender RUDP_Receiver rudp_sender_test rudp_receiver_test
 
+# Disable default rules
+.SUFFIXES:
+
 # Phony targets - targets that are not files but commands to be executed by make.
-.PHONY: all default clean runuc runus
+.PHONY: all default clean
 
 # Default target - compile everything and create the executables and libraries.
 all: TCP_Sender TCP_Receiver RUDP_Sender RUDP_Receiver
