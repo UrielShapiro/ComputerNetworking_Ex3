@@ -1,6 +1,7 @@
+#include "rudp.h"
+
 #include <stdio.h>
 #include <string.h>
-#include "rudp.h"
 
 int main(void)
 {

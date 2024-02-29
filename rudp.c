@@ -7,9 +7,11 @@
 #include <unistd.h>     // For close
 #include <sys/time.h>   // For struct timeval
 
+// debug modes
 #define DEBUG 0
 #define CHECKSUM_DEBUG 0
 
+// parameters of the protocol
 #define ACK_TIMEOUT_US 100000
 #define ACK_TIMEOUT_S 0
 #define RECV_TIMEOUT_US 0
@@ -57,6 +59,9 @@ unsigned short calculate_checksum(void *data, unsigned int bytes)
     return ~(unsigned short)sum;
 }
 
+/**
+ * Sets the checksum of a message
+*/
 void set_checksum(void *rudp_message)
 {
     if (CHECKSUM_DEBUG)
@@ -66,6 +71,9 @@ void set_checksum(void *rudp_message)
     header->checksum = calculate_checksum(rudp_message, sizeof(rudp_header) + header->len);
 }
 
+/**
+ * Validates the checksum of a message
+*/
 int validate_checksum(void *rudp_message)
 {
     if (CHECKSUM_DEBUG)

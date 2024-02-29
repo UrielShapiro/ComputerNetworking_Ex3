@@ -1,9 +1,7 @@
 #ifndef _RUDP_H_
 #define _RUDP_H_
 
-#include <stddef.h>
-#include <sys/socket.h> // For the socket function
-#include <arpa/inet.h> // For the in_addr structure and the inet_pton function
+#include <arpa/inet.h>  // For the in_addr structure and the inet_pton function
 
 typedef struct {
     int sock;

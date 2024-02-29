@@ -1,3 +1,5 @@
+#include "rudp.h"
+
 #include <stdio.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -7,7 +9,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
-#include "rudp.h"
 
 #define FILE_SIZE 2097152
 

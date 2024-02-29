@@ -1,5 +1,6 @@
-#include <stdio.h>
 #include "rudp.h"
+
+#include <stdio.h>
 
 int main(void)
 {
