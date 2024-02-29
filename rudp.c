@@ -7,7 +7,8 @@
 #include <unistd.h>     // For close
 #include <sys/time.h>   // For struct timeval
 
-#define DEBUG 1
+#define DEBUG 0
+#define CHECKSUM_DEBUG 0
 
 #define ACK_TIMEOUT_US 100000
 #define ACK_TIMEOUT_S 0
@@ -22,15 +23,14 @@
 
 unsigned short calculate_checksum(void *data, unsigned int bytes)
 {
-    if (DEBUG)
+    if (CHECKSUM_DEBUG)
+    {
         printf(" checksum of data with size %d\n", bytes);
-    if (DEBUG)
         printf("Data is: ");
-    if (DEBUG)
         for (size_t i = 0; i < bytes; ++i)
             printf("%02x", ((char *)data)[i]);
-    if (DEBUG)
         printf("\n");
+    }
     /* Compute Internet Checksum for "len" bytes
      *         beginning at location "data".
      */
@@ -52,14 +52,14 @@ unsigned short calculate_checksum(void *data, unsigned int bytes)
     /*  Fold 32-bit sum to 16 bits */
     while (sum >> 16)
         sum = (sum & 0xffff) + (sum >> 16);
-    if (DEBUG)
+    if (CHECKSUM_DEBUG)
         printf("Calculated checksum is %hu\n", ~(unsigned short)sum);
     return ~(unsigned short)sum;
 }
 
 void set_checksum(void *rudp_message)
 {
-    if (DEBUG)
+    if (CHECKSUM_DEBUG)
         printf("Setting");
     rudp_header *header = (rudp_header *)rudp_message;
     header->checksum = 0;
@@ -68,7 +68,7 @@ void set_checksum(void *rudp_message)
 
 int validate_checksum(void *rudp_message)
 {
-    if (DEBUG)
+    if (CHECKSUM_DEBUG)
         printf("Validating");
     return 0 == calculate_checksum(rudp_message, sizeof(rudp_header) + ((rudp_header *)rudp_message)->len);
 }
