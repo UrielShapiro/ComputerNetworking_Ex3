@@ -347,7 +347,7 @@ int main(int argc, char **argv)
             printf("Received %ld bytes from the sender %s:%d\n", total_of_bytes_received, inet_ntoa(sender.sin_addr), ntohs(sender.sin_port));
         if (format && strcmp(buffer, FIN) != 0)
         {
-            printf("%ld,%f,%f\n", run-1, time_used_inMS, (double)convertToMegaBytes(total_of_bytes_received) / (time_used_inMS / 1000));
+            printf("%ld,%f,%f\n", run, time_used_inMS, (double)convertToMegaBytes(total_of_bytes_received) / (time_used_inMS / 1000));
         }
         run++;  // Increment the run counter.
 
