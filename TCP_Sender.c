@@ -9,6 +9,8 @@
 #include <time.h>
 #define MB2FILE_SIZE 2097152
 #define FILE_SIZE MB2FILE_SIZE
+#define REPEAT_END_MESSAGE 100
+#define END_WAIT_TIME_SEC 1
 
 /*
  * @brief A random data generator function based on srand() and rand().
@@ -82,8 +84,8 @@ int main(int argc, char **argv)
 
     struct sockaddr_in receiver;
     int sock = -1;
-    char *message = util_generate_random_data(FILE_SIZE);   // Generate a random message of FILE_SIZE bytes.
-    memset(&receiver, 0, sizeof(receiver)); // Zero out the receiver structure
+    char *message = util_generate_random_data(FILE_SIZE); // Generate a random message of FILE_SIZE bytes.
+    memset(&receiver, 0, sizeof(receiver));               // Zero out the receiver structure
 
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock == -1)
@@ -134,7 +136,7 @@ int main(int argc, char **argv)
     fprintf(stdout, "Successfully connected to the receiver!\n");
 
     uint32_t converted_file_size = htonl(FILE_SIZE);
-    int starting_message = send(sock, (void*)&converted_file_size, sizeof(converted_file_size), 0);
+    int starting_message = send(sock, (void *)&converted_file_size, sizeof(converted_file_size), 0);
     if (starting_message <= 0)
     {
         perror("Error sending the file size\n");
@@ -162,12 +164,12 @@ int main(int argc, char **argv)
             do
             {
                 choice = getchar();
-            } while ( choice != 'n' && choice != 'N' && choice != 'y' && choice != 'Y');
+            } while (choice != 'n' && choice != 'N' && choice != 'y' && choice != 'Y');
         } while (choice != 'n' && choice != 'N');
     }
     else
     {
-        for (size_t i = 0; i < auto_run; i++)
+        for (size_t i = 1; i <= auto_run; i++)
         {
             bytes_sent = send(sock, message, FILE_SIZE, 0);
             if (bytes_sent <= 0)
@@ -181,17 +183,22 @@ int main(int argc, char **argv)
     }
     free(message);
     char *ending_message = "Closing connection";
-    // Try to send the message to the receiver using the socket.
-    bytes_sent = send(sock, ending_message, strlen(ending_message) + 1, 0);
+    for (size_t i = 0; i < REPEAT_END_MESSAGE; i++)
+    {
+        // Try to send the message to the receiver using the socket.
+        bytes_sent = send(sock, ending_message, strlen(ending_message) + 1, 0);
+        // If no data was sent, print an error message and return 1. Only occurs if the connection was closed.
+        if (bytes_sent <= 0)
+        {
+            perror("send(2)");
+            close(sock);
+            return 1;
+        }
+    }
     printf("Sent ending messege to the receiver\n");
     // If the message sending failed, print an error message and return 1.
-    // If no data was sent, print an error message and return 1. Only occurs if the connection was closed.
-    if (bytes_sent <= 0)
-    {
-        perror("send(2)");
-        close(sock);
-        return 1;
-    }
+
+    sleep(END_WAIT_TIME_SEC);
     // Close the socket with the receiver.
     close(sock);
 

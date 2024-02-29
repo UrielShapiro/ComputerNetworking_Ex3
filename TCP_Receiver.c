@@ -25,6 +25,8 @@
 #define RECV_TIMEOUT_US 100000
 #define RECV_TIMEOUT_S 0
 
+#define FIN "Closing connection"
+
 typedef struct
 {
     double *data;
@@ -249,7 +251,7 @@ int main(int argc, char **argv)
         clock_t start, end;
         double time_used_inMS;
         start = clock();
-        while (amount_of_bytes_received < sizeof_input && strcmp(buffer, "Closing connection") != 0)
+        while (amount_of_bytes_received < sizeof_input && strcmp(buffer, FIN) != 0)
         {   
             // Receive a message from the sender and store it in the buffer.
             bytes_received = recv(client_sock, buffer, BUFFER_SIZE, 0);
@@ -261,10 +263,6 @@ int main(int argc, char **argv)
                 close(client_sock);
                 close(sock);
                 return 1;
-            }
-            else if (!format)
-            {
-                printf("Received %d bytes\n", bytes_received);
             }
             amount_of_bytes_received += bytes_received;
         }
@@ -287,15 +285,20 @@ int main(int argc, char **argv)
 
         if (!format)
             fprintf(stdout, "Received %ld bytes from the sender %s:%d\n", amount_of_bytes_received, inet_ntoa(sender.sin_addr), ntohs(sender.sin_port));
-        if (format && strcmp(buffer, "Closing connection") != 0)
+        if (format && strcmp(buffer, FIN) != 0)
         {
             printf("%ld,%f,%f\n", run, time_used_inMS, (double)convertToMegaBytes(amount_of_bytes_received) / (time_used_inMS / 1000));
         }
         run++;
-        // If the received message is "Closing connection", close the sender's socket and return 0.
-        if (strcmp(buffer, "Closing connection") == 0)
-        {
+        if(!format) printf("message: %s\n", buffer);
 
+        char *endmessage = &buffer[strlen(buffer) - 18];
+        
+        printf("End message: %s\n", endmessage);
+        printf("run: %ld\n", run);
+        // If the received message is "Closing connection", close the sender's socket and return 0.
+        if (strcmp(endmessage, FIN) == 0)
+        {
             close(client_sock);
             if (!format)
                 fprintf(stdout, "Client %s:%d disconnected\n", inet_ntoa(sender.sin_addr), ntohs(sender.sin_port));
