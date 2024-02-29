@@ -1,5 +1,7 @@
 # VSCode folder
 .vscode/
+# PyCharm folder
+.idea/
 # c compilation outputs
 *.o
 *.so
