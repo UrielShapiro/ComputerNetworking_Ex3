@@ -1,10 +1,13 @@
+# VSCode folder
+.vscode/
+# c compilation outputs
 *.o
 *.so
 *.a
 # executables
-rudp_receiver_test
-rudp_sender_test
-RUDP_Sender
 TCP_Receiver
 TCP_Sender
 RUDP_Receiver
+RUDP_Sender
+rudp_receiver_test
+rudp_sender_test
