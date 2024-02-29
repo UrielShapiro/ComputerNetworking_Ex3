@@ -7,9 +7,11 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
-#include <sys/time.h>   // For struct timeval
+#include <sys/time.h> // For struct timeval
 
 
+#define TRUE 1
+#define FALSE 0
 /*
  * @brief The maximum number of clients that the receiver can handle.
  * @note The default maximum number of clients is 1.
@@ -23,7 +25,7 @@
 #define BUFFER_SIZE 2097152
 
 #define RECV_TIMEOUT_US 100000
-#define RECV_TIMEOUT_S 0
+#define RECV_TIMEOUT_S 2
 
 #define FIN "Closing connection"
 
@@ -34,6 +36,9 @@ typedef struct
     size_t size;
 } ArrayList;
 
+
+// ------------------------ FUNCTIONS THAT ARE USED IN MAIN() -------------------------------
+
 void addToList(ArrayList *list, double num)
 {
     if (list->size == list->capacity)
@@ -42,7 +47,6 @@ void addToList(ArrayList *list, double num)
     }
     list->data[list->size++] = num;
 }
-
 double convertToMegaBytes(size_t bytes)
 {
     size_t converstion = 1024 * 1024;
@@ -52,35 +56,61 @@ double convertToSpeed(double bytes, double time)
 {
     return convertToMegaBytes(bytes) / (time / 1000);
 }
-int isSocketConnected(int sockfd) { 
-    int error; 
-    socklen_t len = sizeof(error); 
-    int ret = getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &error, &len); 
-     
-    if (ret == 0 && error == 0) { 
-        // Socket is connected 
-        return 1; 
-    } 
-    else 
-    { 
-        // Socket is not connected 
-        return 0; 
-    } 
-} 
+int CloseSockets(int *sock, int *client_sock,unsigned short format, struct sockaddr_in sender)
+{
+    close(*client_sock);
+    if (!format)
+        fprintf(stdout, "Client %s:%d disconnected\n", inet_ntoa(sender.sin_addr), ntohs(sender.sin_port));
+    close(*sock);
+    if (!format)
+        fprintf(stdout, "Closing connection!\n");
+    return 0;
+}
+void endPrints(ArrayList *Times_list, ArrayList *Speed_list, size_t run, unsigned short format)
+{
+     double avg_time = 0;
+            double avg_speed = 0;
+            for (size_t i = 0; i < Times_list->size; i++)
+            {
+                avg_time += Times_list->data[i];
+                avg_speed += Speed_list->data[i];
+            }
+            avg_time = avg_time / Times_list->size;
+            avg_speed = avg_speed / Speed_list->size;
+            if (!format)
+            {
+                printf("Average time taken to receive a message: %f\n", avg_time);
+                printf("Average speed: %f\n", avg_speed);
+                printf("Number of runs: %ld\n", run);
+            }
+            if (format)
+            {
+                printf("Average,%f,%f\n", avg_time, avg_speed);
+            }
+}
+
+//----------------------------------------------- MAIN -----------------------------------------------------------
+
 int main(int argc, char **argv)
 {
+    //--------------------------------------PARSING THE INPUT---------------------------------------------------
+    if (argc == 0)
+    {
+        printf("Cant run with no arguments\n");
+        return 1;
+    }
     size_t i = 0;
     unsigned short port = 0;
     char *algo = NULL;
-    unsigned short format = 0; // when true, print only the run #, runtime, and throughput (mb / s)
-    while ((int)i < argc)
+    unsigned short format = FALSE; // when true, print only the run #, runtime, and throughput (mb / s)
+    while ((int)i < argc)   // Parsing the arguments passed to the program.
     {
         if (strcmp(argv[i], "-p") == 0)
         {
             port = (unsigned short)atoi(argv[++i]);
             if (port < 1024)
             {
-                perror("Invalid port\n");
+                printf("Invalid port\n");
                 return 1;
             }
         }
@@ -88,7 +118,7 @@ int main(int argc, char **argv)
         {
             if (strcmp(argv[i + 1], "reno") != 0 && strcmp(argv[i + 1], "cubic") != 0)
             {
-                perror("Invalid algorithm\n");
+                printf("Invalid algorithm\n");  // If the algorithm is not reno or cubic, print an error message and return 1.
                 return 1;
             }
             algo = argv[++i];
@@ -101,7 +131,7 @@ int main(int argc, char **argv)
     }
     if (port == 0 || algo == NULL)
     {
-        perror("Invalid arguments\n");
+        printf("Invalid arguments\n");
         return 1;
     }
     if (!format)
@@ -110,7 +140,7 @@ int main(int argc, char **argv)
         printf("Algorithm: %s\n", algo);
         printf("Auto Run: %d\n", format);
     }
-
+    //---------------------------------------CONFIGURING SOCKETS------------------------------------------------
     // The variable to store the socket file descriptor.
     int sock = -1;
 
@@ -129,7 +159,7 @@ int main(int argc, char **argv)
     // Reset the receiver and sender structures to zeros.
     memset(&receiver, 0, sizeof(receiver));
     memset(&sender, 0, sizeof(sender));
-    
+
     // Try to create a TCP socket (IPv4, stream-based, default protocol).
     sock = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -187,7 +217,7 @@ int main(int argc, char **argv)
     }
     if (!format)
     {
-        fprintf(stdout, "Listening for incoming connections on port %d...\n", port);
+        printf("Listening for incoming connections on port %d...\n", port);
     }
 
     int client_sock = -1;
@@ -211,19 +241,19 @@ int main(int argc, char **argv)
         close(sock);
         return 1;
     }
-    if (setsockopt(client_sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0)   //Might be unnecessary
-    {
-        perror("Error setting timeout for the receiver socket\n");
-        close(client_sock);
-        close(sock);
-        return 1;
-    }
+    // if (setsockopt(client_sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0) // Might be unnecessary
+    // {
+    //     perror("Error setting timeout for the receiver socket\n");
+    //     close(client_sock);
+    //     close(sock);
+    //     return 1;
+    // }
 
     // Print a message to the standard output to indicate that a new sender has connected.
     if (!format)
         fprintf(stdout, "Client %s:%d connected\n", inet_ntoa(sender.sin_addr), ntohs(sender.sin_port));
 
-    size_t run = 0;
+    size_t run = 0; //will count the amount of packeges received.
     ArrayList Times_list;
     Times_list.data = malloc(sizeof(double));
     Times_list.capacity = 1;
@@ -233,29 +263,34 @@ int main(int argc, char **argv)
     Speed_list.data = malloc(sizeof(double));
     Speed_list.capacity = 1;
     Speed_list.size = 0;
-    int starting_message = 0;
+    int input_size = 0;
     size_t sizeof_input;
-    while (!starting_message)
+    while (!input_size)
     {
-        starting_message = recv(client_sock, &sizeof_input, sizeof(sizeof_input), 0);
+        //Before sending the packege, the sender will send the weight of the package in bytes.
+        input_size = recv(client_sock, &sizeof_input, sizeof(sizeof_input), 0);
     }
     sizeof_input = ntohl(sizeof_input);
     printf("Size of input: %ld bytes\n", sizeof_input);
+    
+    volatile unsigned short noEndMessage = TRUE;    //Indicator if the end message was received.
     // The receiver's main loop.
-    while (isSocketConnected(client_sock))
+    while (noEndMessage)
     {
+        //A variable to store the amout of bytes received in each recv().
         int bytes_received;
         // Create a buffer to store the received message.
         char buffer[BUFFER_SIZE] = {0};
+        char *endmessage = &buffer[strlen(buffer) - 18]; //Before sender disconnects, endmessage will be "FIN".
         size_t amount_of_bytes_received = 0;
         clock_t start, end;
         double time_used_inMS;
         start = clock();
-        while (amount_of_bytes_received < sizeof_input && strcmp(buffer, FIN) != 0)
-        {   
+        while (amount_of_bytes_received < sizeof_input && strcmp(endmessage, FIN) != 0)
+        {
             // Receive a message from the sender and store it in the buffer.
             bytes_received = recv(client_sock, buffer, BUFFER_SIZE, 0);
-            
+
             // If the message receiving failed, print an error message and return 1.
             if (bytes_received < 0)
             {
@@ -285,46 +320,22 @@ int main(int argc, char **argv)
 
         if (!format)
             fprintf(stdout, "Received %ld bytes from the sender %s:%d\n", amount_of_bytes_received, inet_ntoa(sender.sin_addr), ntohs(sender.sin_port));
-        if (format && strcmp(buffer, FIN) != 0)
+        if (format && strcmp(endmessage, FIN) != 0)
         {
             printf("%ld,%f,%f\n", run, time_used_inMS, (double)convertToMegaBytes(amount_of_bytes_received) / (time_used_inMS / 1000));
         }
         run++;
 
-        char *endmessage = &buffer[strlen(buffer) - 18];
-        
         printf("run: %ld\n", run);
         // If the received message is "Closing connection", close the sender's socket and return 0.
         if (strcmp(endmessage, FIN) == 0)
         {
-            close(client_sock);
-            if (!format)
-                fprintf(stdout, "Client %s:%d disconnected\n", inet_ntoa(sender.sin_addr), ntohs(sender.sin_port));
-            close(sock);
-            if(!format) fprintf(stdout, "Closing connection!\n");
-            double avg_time = 0;
-            double avg_speed = 0;
-            for (size_t i = 0; i < Times_list.size; i++)
-            {
-                avg_time += Times_list.data[i];
-                avg_speed += Speed_list.data[i];
-            }
-            avg_time = avg_time / Times_list.size;
-            avg_speed = avg_speed / Speed_list.size;
-            if (!format)
-            {
-                printf("Average time taken to receive a message: %f\n", avg_time);
-                printf("Average speed: %f\n", avg_speed);
-                printf("Number of runs: %ld\n", run);
-            }
-            if (format)
-            {
-                printf("Average,%f,%f\n", avg_time, avg_speed);
-            }
-            free(Times_list.data);
-            free(Speed_list.data);
-            return 0;
+            noEndMessage = 0;
+            CloseSockets(&sock, &client_sock, format, sender);
+            endPrints(&Times_list, &Speed_list, run, format);
         }
     }
+    free(Times_list.data);
+    free(Speed_list.data);
     return 0;
 }

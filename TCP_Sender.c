@@ -7,10 +7,17 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
+#include <sys/time.h> // For struct timeval
+
+
 #define MB2FILE_SIZE 2097152
 #define FILE_SIZE MB2FILE_SIZE
-#define REPEAT_END_MESSAGE 100
+#define REPEAT_END_MESSAGE 3
 #define END_WAIT_TIME_SEC 1
+#define FIN_MESSAGE "Closing connection"
+
+#define RECV_TIMEOUT_US 10000
+#define RECV_TIMEOUT_S 2
 
 /*
  * @brief A random data generator function based on srand() and rand().
@@ -52,7 +59,7 @@ int main(int argc, char **argv)
             port = (unsigned short)atoi(argv[++i]);
             if (port < 1024)
             {
-                perror("Invalid port\n");
+                printf("Invalid port\n");
                 return 1;
             }
         }
@@ -60,7 +67,7 @@ int main(int argc, char **argv)
         {
             if (strcmp(argv[i + 1], "reno") != 0 && strcmp(argv[i + 1], "cubic") != 0)
             {
-                perror("Invalid algorithm\n");
+                printf("Invalid algorithm\n");
                 return 1;
             }
             algo = argv[++i];
@@ -73,7 +80,7 @@ int main(int argc, char **argv)
     }
     if (ip == NULL || port == 0 || algo == NULL)
     {
-        perror("Invalid arguments\n");
+        printf("Invalid arguments\n");
         return 1;
     }
     printf("IP: %s\n", ip);
@@ -82,6 +89,7 @@ int main(int argc, char **argv)
     if (auto_run != 0)
         printf("Auto run: %d\n", auto_run);
 
+    //----------------------------------CONFIGURING THE SOCKET-------------------------------------------------
     struct sockaddr_in receiver;
     int sock = -1;
     char *message = util_generate_random_data(FILE_SIZE); // Generate a random message of FILE_SIZE bytes.
@@ -126,6 +134,15 @@ int main(int argc, char **argv)
         free(message);
         return -1;
     }
+    struct timeval timeout;
+    timeout.tv_sec = RECV_TIMEOUT_S;
+    timeout.tv_usec = RECV_TIMEOUT_US;
+    if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
+    {
+        perror("Error setting timeout for the socket\n");
+        close(sock);
+        return 1;
+    }
 
     fprintf(stdout, "Connecting to %s:%d...\n", ip, port);
 
@@ -136,11 +153,13 @@ int main(int argc, char **argv)
         close(sock);
         return 1;
     }
+    
+    //---------------------------------START SENDING INFORMATION------------------------------------------------
 
-    fprintf(stdout, "Successfully connected to the receiver!\n");
-
-    uint32_t converted_file_size = htonl(FILE_SIZE);
-    int starting_message = send(sock, (void *)&converted_file_size, sizeof(converted_file_size), 0);
+    printf("Successfully connected to the receiver!\n");
+    // Sending the size of the input to the receiver.
+    uint32_t report_file_size = htonl(FILE_SIZE);
+    int starting_message = send(sock, (void *)&report_file_size, sizeof(report_file_size), 0);
     if (starting_message <= 0)
     {
         perror("Error sending the file size\n");
@@ -148,14 +167,14 @@ int main(int argc, char **argv)
         return 1;
     }
     int bytes_sent;
-    char choice = 'Y';
+    char choice;
     if (auto_run == 0)
     {
         do
         {
             // Try to send the message to the receiver using the socket.
             bytes_sent = send(sock, message, FILE_SIZE, 0);
-            // If the message sending failed, print an error message and return 1.
+
             // If no data was sent, print an error message and return 1. Only occurs if the connection was closed.
             if (bytes_sent <= 0)
             {
@@ -167,7 +186,7 @@ int main(int argc, char **argv)
             printf("Do you want to send again? (Y/n)\n");
             do
             {
-                choice = getchar();
+                choice = getchar(); //Getting a char from the user untill he writes 'y', 'Y', 'n', 'N'
             } while (choice != 'n' && choice != 'N' && choice != 'y' && choice != 'Y');
         } while (choice != 'n' && choice != 'N');
     }
@@ -182,12 +201,12 @@ int main(int argc, char **argv)
                 close(sock);
                 return 1;
             }
-            fprintf(stdout, "Sent %d bytes to the receiver!, for the %ld time\n", bytes_sent, i);
+            printf("Sent %d bytes to the receiver!, for the %ld time\n", bytes_sent, i);
         }
     }
     free(message);
-    char *ending_message = "Closing connection";
-    for (size_t i = 0; i < REPEAT_END_MESSAGE; i++)
+    char *ending_message = FIN_MESSAGE;
+    for (size_t i = 0; i < REPEAT_END_MESSAGE; i++) //Sending the 
     {
         // Try to send the message to the receiver using the socket.
         bytes_sent = send(sock, ending_message, strlen(ending_message) + 1, 0);

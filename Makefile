@@ -54,25 +54,10 @@ RUDP_Sender.o: RUDP_Sender.c rudp.h
 rudp.o: rudp.c rudp.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-################
-# System Trace #
-################
-
-# Run the udp server with system trace.
-runus_trace: udp_server
-	strace ./udp_server
-
-# Run the udp client with system trace.
-runuc_trace: udp_client
-	strace ./udp_client
 
 #################
-# Cleanup files #
+#	  TESTS		#
 #################
-
-# Remove all the object files, shared libraries and executables.
-clean:
-	$(RM) *.o *.so $(EXECUTABLES)
 
 rudp_sender_test.o: rudp_sender_test.c rudp.h
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -87,3 +72,12 @@ rudp_receiver_test: rudp_receiver_test.o rudp.o
 	$(CC) $(CFLAGS) -o $@ $^
 
 tests: rudp_receiver_test rudp_sender_test
+
+#################
+# Cleanup files #
+#################
+
+# Remove all the object files, shared libraries and executables.
+clean:
+	$(RM) *.o *.so $(EXECUTABLES)
+
