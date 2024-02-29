@@ -259,7 +259,7 @@ int main(int argc, char **argv)
             // If the message receiving failed, print an error message and return 1.
             if (bytes_received < 0)
             {
-                perror("Reached timeout\n");
+                perror("Reached timeout");
                 close(client_sock);
                 close(sock);
                 return 1;
@@ -290,11 +290,9 @@ int main(int argc, char **argv)
             printf("%ld,%f,%f\n", run, time_used_inMS, (double)convertToMegaBytes(amount_of_bytes_received) / (time_used_inMS / 1000));
         }
         run++;
-        if(!format) printf("message: %s\n", buffer);
 
         char *endmessage = &buffer[strlen(buffer) - 18];
         
-        printf("End message: %s\n", endmessage);
         printf("run: %ld\n", run);
         // If the received message is "Closing connection", close the sender's socket and return 0.
         if (strcmp(endmessage, FIN) == 0)
