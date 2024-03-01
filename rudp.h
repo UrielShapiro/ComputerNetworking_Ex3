@@ -15,10 +15,12 @@ typedef struct {
     socklen_t peer_address_size;
 } rudp_receiver;
 
-/**
- * Opens an RUDP receiver and waits for a connection from a sender
- * Returns a pointer to the receiver, make sure to call rudp_close_receiver when done with it
- * Returns NULL on error
+/*
+    * @brief Opens an RUDP receiver and waits for a connection from a sender.
+    * Listens on the given port. and accepts the first connection.
+    * Returns a pointer to the receiver.
+    * @return NULL on error
+    * @note The default maximum number of clients is 1.
 */
 rudp_receiver *rudp_open_receiver(unsigned short port);
 
@@ -30,37 +32,42 @@ rudp_receiver *rudp_open_receiver(unsigned short port);
 rudp_sender *rudp_open_sender(char *address, unsigned short port);
 
 /**
- * Send a FIN to the associated receiver and closes the connection
+*/
+
+
+/*
+    * @brief Closes the RUDP sender, Send a FIN to the associated receiver and closes the connection
 */
 void rudp_close_sender(rudp_sender *sender);
 
-/**
- * Closes the RUDP receiver, any subsequent messages sent to it are not accepted
+/*
+    * @brief Closes the RUDP receiver, Sends a FIN to the associated sender and closes the connection
 */
 void rudp_close_receiver(rudp_receiver *receiver);
 
 /**
- * Sends <size> bytes stroed at <data> through the sender
- * Returns the number of bytes sent
- * Returns -1 on error
+ * @brief Sends "size" bytes stored at "data" through the sender ("this")
+ * @return the number of bytes sent, 
+ * @return -1 on error
 */
 int rudp_send(rudp_sender *sender, void *data, size_t size);
 
-/**
- * Waits for a message from the sender, writes the message up to <size> bytes into <buffer>
- * Returns the number of bytes received
- * Returns -1 on close message received, if this happens you should call rudp_close_receiver
- * Returns -2 on error
+/*
+    * @brief Waits for a message from the sender, writes the message up to "size" bytes into "buffer"
+    * @return the number of bytes received, 
+    * @return -1 on close message received, 
+    * @return -2 on error
 */
 int rudp_recv(rudp_receiver *receiver, void *buffer, size_t size);
 
+// ENUM for the flags in the header
 enum rudp_header_flags {
     SYN = 1<<0,
     ACK = 1<<1,
     FIN = 1<<2,
     MOR = 1<<3,
 };
-
+// The struct of the header of the RUDP protocol
 typedef struct {
     unsigned short len;     // size not including header
     char flags;

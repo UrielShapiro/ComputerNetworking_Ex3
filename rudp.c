@@ -176,12 +176,7 @@ rudp_sender *rudp_open_sender(char *address, unsigned short port)
 
     return this;
 }
-/*
-    * Opens an RUDP receiver and waits for a connection from a sender.
-    * Listens on the given port. and accepts the first connection.
-    * Returns a pointer to the receiver.
-    * Returns NULL on error
-*/
+
 rudp_receiver *rudp_open_receiver(unsigned short port) 
 {
     rudp_receiver *this = malloc(sizeof(rudp_receiver));
@@ -260,9 +255,6 @@ rudp_receiver *rudp_open_receiver(unsigned short port)
     return this;    // Return the receiver address.
 }
 
-/*
-    * Send a FIN to the associated receiver and closes the connection.
-*/
 void rudp_close_sender(rudp_sender *this)
 {
     rudp_header close_message = {0};    // We will read only the header, therefore we initialize the message to 0.
@@ -315,9 +307,6 @@ void rudp_close_sender(rudp_sender *this)
     free(this);
 }
 
-/*
-    * Closes the RUDP receiver.
-*/
 void rudp_close_receiver(rudp_receiver *this)
 {
     close(this->sock);
@@ -429,12 +418,7 @@ int rudp_send(rudp_sender *this, void *data, size_t size)
     free(message_buffer);
     return total_sent;              // Return the total number of bytes sent.
 }
-/*
-    * Waits for a message from the sender.
-    * Returns the number of bytes received.
-    * Returns -1 on close message received.
-    * Returns -2 on error.
-*/
+
 int rudp_recv(rudp_receiver *this, void *buffer, size_t size)
 {
     // Set no timeout for first message
