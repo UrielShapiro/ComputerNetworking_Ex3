@@ -10,9 +10,8 @@
 #include <stdlib.h>
 #include <time.h>
 #include <sys/time.h> // For struct timeval
-#include "rudp.h"
 
-#define FILE_SIZE 2097152
+#define FILE_SIZE 2097152   //The size of the file to be sent - currently 2MB
 
 /*
  * @brief A random data generator function based on srand() and rand().
@@ -38,7 +37,7 @@ char *util_generate_random_data(unsigned int size)
 
 int main(int argc, char **argv)
 {
-    if (argc == 1)
+    if (argc == 1)  //If no arguments were given
     {
         printf("Error! No arguments were given\n");
         return 1;

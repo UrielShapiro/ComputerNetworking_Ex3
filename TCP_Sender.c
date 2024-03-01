@@ -10,13 +10,12 @@
 #include <sys/time.h> // For struct timeval
 
 
-#define MB2FILE_SIZE 2097152
-#define FILE_SIZE MB2FILE_SIZE
-#define REPEAT_END_MESSAGE 3
-#define FIN_MESSAGE "Closing connection"
+#define FILE_SIZE 2097152  //The size of the file to be sent - currently 2MB
+#define REPEAT_END_MESSAGE 3    //The number of times the ending message would be sent
+#define FIN_MESSAGE "Closing connection"    //The message to be sent to the receiver to indicate the end of connection
 
-#define RECV_TIMEOUT_US 10000
-#define RECV_TIMEOUT_S 2
+#define RECV_TIMEOUT_US 10000   //The timeout for the socket to receive data in microseconds
+#define RECV_TIMEOUT_S 2        //The timeout for the socket to receive data in seconds
 
 /*
  * @brief A random data generator function based on srand() and rand().
@@ -42,7 +41,7 @@ char *util_generate_random_data(unsigned int size)
 
 int main(int argc, char **argv)
 {
-    if(argc == 1)
+    if(argc == 1)   //If no arguments were given
     {
         printf("Error! No arguments were given\n");
         return 1;
