@@ -157,7 +157,11 @@ rudp_sender *rudp_open_sender(char *address, unsigned short port)
             fprintf(stderr, "Error on ACK message at open_sender\n");
             continue;
         }
-        //TODO: Check the flag of the ack message
+        if (!(ack_message.flags & (ACK | SYN)))
+        {
+            fprintf(stderr, "Error in ACK message flags at open_sender\n");
+            continue;
+        }
         // if we made it here we were successful
         successful = TRUE;
     }
@@ -325,17 +329,15 @@ void rudp_close_receiver(rudp_receiver *this)
     * Is used in rudp_send to divide a message into smaller segments.
     * Returns the number of bytes sent.
 */
-int rudp_send_segment(rudp_sender *this, void *data, size_t size, unsigned short segment_num, int more)
+int rudp_send_segment(rudp_sender *this, void *data, size_t size, unsigned short segment_num, int more, char *message_buffer)
 {
-    //TODO: Don't alloc here.
-    char *message = malloc(sizeof(rudp_header) + size); // Allocate memory for the message (+space for header).
-    memcpy(message + sizeof(rudp_header), data, size);  // Copy the data to the message.
-    rudp_header *header = (rudp_header *)message;       // Initialize the header of the message.
+    memcpy(message_buffer + sizeof(rudp_header), data, size);  // Copy the data to the message.
+    rudp_header *header = (rudp_header *)message_buffer;       // Initialize the header of the message.
     memset(header, 0, sizeof(rudp_header));             // Initialize the header to 0.
     header->len = size;                                 // Set the length of the message to the size of the data.
     header->flags = (more ? MOR : 0);                   // Set the MOR flag to 1 if there is more data to send.
     header->segment_num = segment_num;                  // Set the header's segment number to the given segment number.
-    set_checksum(message);                              // Set the checksum of the message.
+    set_checksum(message_buffer);                              // Set the checksum of the message.
 
     size_t message_size = size + sizeof(rudp_header);
 
@@ -347,7 +349,7 @@ int rudp_send_segment(rudp_sender *this, void *data, size_t size, unsigned short
         printf("Attempting send, remaining: %d\n", remaining_tries);
 #endif
         // Send the message to the receiver.
-        int sent = sendto(this->sock, message, message_size, 0, &this->peer_address, this->peer_address_size);
+        int sent = sendto(this->sock, message_buffer, message_size, 0, &this->peer_address, this->peer_address_size);
         if (sent < 0)
         {
 #ifdef DEBUG
@@ -356,7 +358,11 @@ int rudp_send_segment(rudp_sender *this, void *data, size_t size, unsigned short
             perror("Error sending message at send_segment");
             continue;
         }
-        //TODO: Check sent equals message_size.
+        if ((size_t) sent != message_size)
+        {
+            fprintf(stderr, "Didn't send whole message at send_segment\n");
+            continue;
+        }
         rudp_header ack_message;    // Initialize the ack_message to store the received ACK message.
         if (recv(this->sock, &ack_message, sizeof(ack_message), 0) < 0)
         {
@@ -385,7 +391,6 @@ int rudp_send_segment(rudp_sender *this, void *data, size_t size, unsigned short
         // if we made it here we were successful
         successful = TRUE;
     }
-    free(message);
     if (remaining_tries == 0)   // If the maximum number of retries is reached, the message was not sent and an error will be printed.
         return -1;
     return size;    // Return the size of the message in bytes.
@@ -393,6 +398,7 @@ int rudp_send_segment(rudp_sender *this, void *data, size_t size, unsigned short
 
 int rudp_send(rudp_sender *this, void *data, size_t size)
 {
+    char *message_buffer = malloc(sizeof(rudp_header) + size); // Preallocate memory for the messages that will be sent (+space for header), to prevent allocating on every segment
     char *data_bytes = (char *)data;    // Convert the pointer of the data to char*.
     size_t total_sent = 0;
     unsigned short segment_num = 0;
@@ -408,15 +414,19 @@ int rudp_send(rudp_sender *this, void *data, size_t size)
             more = TRUE;
         }
         // Send the segment to the receiver.
-        int bytes_sent = rudp_send_segment(this, data_bytes + total_sent, segment_size, segment_num, more);
+        int bytes_sent = rudp_send_segment(this, data_bytes + total_sent, segment_size, segment_num, more, message_buffer);
         // If the segment was not sent, return -1.
         if (bytes_sent < 0)
+        {
+            free(message_buffer);
             return -1;  // Error, send_segment will print the details if the error.
+        }
 
         total_sent += bytes_sent;   // Add the number of bytes sent to the total number of bytes sent.
         segment_num += 1;           // Increment the segment number.
     }
 
+    free(message_buffer);
     return total_sent;              // Return the total number of bytes sent.
 }
 /*
