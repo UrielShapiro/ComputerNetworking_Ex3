@@ -257,7 +257,7 @@ rudp_receiver *rudp_open_receiver(unsigned short port)
 
 void rudp_close_sender(rudp_sender *this)
 {
-    rudp_header close_message = {0};    // We will read only the header, therefore we initialize the message to 0.
+    rudp_header close_message = {0};    // We will send only the header, therefore we initialize the message to 0.
     close_message.len = 0;
     close_message.flags = FIN;          // Set the FIN flag to 1 for the FIN message.
     set_checksum(&close_message);       // Set the checksum of the message.
@@ -391,7 +391,7 @@ int rudp_send(rudp_sender *this, void *data, size_t size)
     char *data_bytes = (char *)data;    // Convert the pointer of the data to char*.
     size_t total_sent = 0;
     unsigned short segment_num = 0;
-    while (size > total_sent)   // Loop until the entire message is sent.
+    while (total_sent < size)   // Loop until the entire message is sent.
     {
         size_t segment_size = size - total_sent;    // Set the segment size to the remaining size of the message.
         int more = FALSE;
@@ -408,7 +408,7 @@ int rudp_send(rudp_sender *this, void *data, size_t size)
         if (bytes_sent < 0)
         {
             free(message_buffer);
-            return -1;  // Error, send_segment will print the details if the error.
+            return -1;  // Error, send_segment will print the details of the error.
         }
 
         total_sent += bytes_sent;   // Add the number of bytes sent to the total number of bytes sent.
@@ -434,7 +434,7 @@ int rudp_recv(rudp_receiver *this, void *buffer, size_t size)
     }
 
     char *buffer_bytes = (char *)buffer;    // Convert the pointer of the buffer to char*.
-    char *segment_buffer = malloc(sizeof(rudp_header) + MAX_SEGMENT_SIZE);  // Allocate memory for the buffer which would include the segmet received.
+    char *segment_buffer = malloc(sizeof(rudp_header) + MAX_SEGMENT_SIZE);  // Allocate memory for the buffer which will contain the message received.
     int more = TRUE;
     size_t total_received = 0;
     unsigned short expected_segment_num = 0;
@@ -483,7 +483,7 @@ int rudp_recv(rudp_receiver *this, void *buffer, size_t size)
 
         // Initialize the header of the message. It will point to the header of the segment buffer because the header is the first part of the segment buffer.
         rudp_header *header = (rudp_header *)segment_buffer;    
-        more = header->flags & MOR;     // Set the header more value to true.
+        more = header->flags & MOR;     // Extract the MOR flag into the more variable
 
         rudp_header ack_message = {0};  //Initialize an ACK message to send to the sender (only the header matters so we initialize the message to 0)
         ack_message.len = 0;
@@ -508,7 +508,7 @@ int rudp_recv(rudp_receiver *this, void *buffer, size_t size)
         int successful = FALSE;
         for (remaining_tries = MAX_RETRIES; remaining_tries > 0 && !successful; --remaining_tries)  // Loop until the maximum number of retries is reached or the message is sent.
         {
-            // Send the ACK/FIN/SYN message to the sender.
+            // Send the ACK(-FIN/SYN) message to the sender.
             if (sendto(this->sock, &ack_message, sizeof(ack_message), 0, &this->peer_address, this->peer_address_size) < 0)
             {
                 perror("Error sending ACK message at recv");
@@ -520,7 +520,7 @@ int rudp_recv(rudp_receiver *this, void *buffer, size_t size)
 #endif
         }
 
-        if (header->flags & FIN)    // After sending the FIN message, close the receiver and return -1 (which represent end of connection).
+        if (header->flags & FIN)    // After sending the FIN-ACK message, return -1 (which represents end of connection), receiver should be closed by user after this.
         {
             free(segment_buffer);
             return -1;
