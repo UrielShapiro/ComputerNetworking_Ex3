@@ -204,6 +204,13 @@ int main(int argc, char **argv)
         }
         if (bytes_received == 0)
             continue;
+        if((size_t)bytes_received != sizeof_input)
+        {
+            printf("Error! Received message size is not the same as the input size\n");
+            rudp_close_receiver(receiver);
+            endFree(&Times_list, &Speed_list, buffer);
+            return 1;
+        }
         time_used_inMS = 1000 * (double)(end - start) / CLOCKS_PER_SEC; // Calculating the time it took for the message to be received.
         double speed = convertToSpeed(bytes_received, time_used_inMS);
         addToList(&Times_list, time_used_inMS);
