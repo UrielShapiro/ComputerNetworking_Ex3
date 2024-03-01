@@ -9,7 +9,7 @@ run(["sudo", "tc", "qdisc", "add", "dev", "lo", "root", "netem", "loss", "00%"],
 loss_amounts = [0, 2, 5, 10]
 algos = ["reno", "cubic"]
 port = 5000
-runs = 10
+runs = 5
 
 
 def set_loss(loss):
