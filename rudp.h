@@ -15,19 +15,19 @@ typedef struct {
     socklen_t peer_address_size;
 } rudp_receiver;
 
-/*
-    * @brief Opens an RUDP receiver and waits for a connection from a sender.
-    * Listens on the given port. and accepts the first connection.
-    * Returns a pointer to the receiver.
-    * @return NULL on error
-    * @note The default maximum number of clients is 1.
+/**
+ * @brief Opens an RUDP receiver and waits for a connection from a sender.
+ * Listens on the given port. and accepts the first connection.
+ * Make sure to call rudp_close_receiver on the result to close and free
+ * @return a pointer to the receiver or NULL on error
+ * @note The default maximum number of clients is 1.
 */
 rudp_receiver *rudp_open_receiver(unsigned short port);
 
 /**
- * Opens an RUDP sender and connects to a receiver in the given address and port
- * Returns a pointer to the sender, make sure to call rudp_close_sender when done with it
- * Returns NULL on error, including no receiver accepting the connection
+ * @brief Opens an RUDP sender and connects to a receiver in the given address and port
+ * Make sure to call rudp_close_sender on the result to close and free
+ * @return a pointer to the sender or NULL on error
 */
 rudp_sender *rudp_open_sender(char *address, unsigned short port);
 
@@ -35,13 +35,13 @@ rudp_sender *rudp_open_sender(char *address, unsigned short port);
 */
 
 
-/*
-    * @brief Closes the RUDP sender, Send a FIN to the associated receiver and closes the connection
+/**
+ * @brief Closes the RUDP sender, Send a FIN to the associated receiver and closes the connection
 */
 void rudp_close_sender(rudp_sender *sender);
 
-/*
-    * @brief Closes the RUDP receiver, Sends a FIN to the associated sender and closes the connection
+/**
+ * @brief Closes the RUDP receiver, Sends a FIN to the associated sender and closes the connection
 */
 void rudp_close_receiver(rudp_receiver *receiver);
 
@@ -52,15 +52,15 @@ void rudp_close_receiver(rudp_receiver *receiver);
 */
 int rudp_send(rudp_sender *sender, void *data, size_t size);
 
-/*
-    * @brief Waits for a message from the sender, writes the message up to "size" bytes into "buffer"
-    * @return the number of bytes received, 
-    * @return -1 on close message received, 
-    * @return -2 on error
+/**
+ * @brief Waits for a message from the sender, writes the message up to "size" bytes into "buffer"
+ * @return the number of bytes received, 
+ * @return -1 on close message received, 
+ * @return -2 on error
 */
 int rudp_recv(rudp_receiver *receiver, void *buffer, size_t size);
 
-// ENUM for the flags in the header
+// ENUM for bit masks in the flag field of rudp_header
 enum rudp_header_flags {
     SYN = 1<<0,
     ACK = 1<<1,
