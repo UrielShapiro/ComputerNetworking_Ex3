@@ -310,9 +310,7 @@ int main(int argc, char **argv)
     {
         // A variable to store the amout of bytes received in each recv().
         int bytes_received;
-        // Create a buffer to store the received message.
-        // char *endmessage = buffer + strlen(buffer) - 18; // Before sender disconnects, endmessage will be "FIN".
-        size_t total_of_bytes_received = 0;
+        size_t total_of_bytes_received = 0;    // A variable to count the total amount of bytes received.
         clock_t start, end;
         double time_used_inMS;
         start = clock();
