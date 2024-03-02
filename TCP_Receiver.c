@@ -318,6 +318,8 @@ int main(int argc, char **argv)
         {
             // Receive a message from the sender and store it in the buffer.
             bytes_received = recv(client_sock, buffer, buffer_size, 0);
+            // Because there is no need to save the information in the buffer, in each run we will override the data in the buffer.
+            // If we were to save the data, we would use the following line: recv(clent_sock, buffer + total_of_bytes_received, buffer_size - total_of_bytes_received, 0).
 
             // If the message receiving failed, print an error message and return 1.
             if (bytes_received < 0)
