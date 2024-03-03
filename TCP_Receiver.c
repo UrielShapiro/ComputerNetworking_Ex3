@@ -89,8 +89,11 @@ void CloseSockets(int *sock, int *client_sock, unsigned short format, struct soc
  */
 void endPrints(ArrayList *Times_list, ArrayList *Speed_list, size_t run, unsigned short format)
 {
-    printf("----------------------------------------\n");
-    printf("Runs summary:\n");
+    if (!format)
+    {
+        printf("----------------------------------------\n");
+        printf("Runs summary:\n");
+    }
     double avg_time = 0;
     double avg_speed = 0;
     size_t runs_counter = 1;
@@ -298,7 +301,8 @@ int main(int argc, char **argv)
     int input_size = 0;
     size_t sizeof_input;
 
-    if(format) printf("Time (ms),Speed (MB/s)\n");
+    if (format)
+        printf("Time (ms),Speed (MB/s)\n");
     while (!input_size)
     {
         // Before sending the packege, the sender will send the weight of the package in bytes.
@@ -315,7 +319,7 @@ int main(int argc, char **argv)
     {
         // A variable to store the amout of bytes received in each recv().
         int bytes_received;
-        size_t total_of_bytes_received = 0;    // A variable to count the total amount of bytes received.
+        size_t total_of_bytes_received = 0; // A variable to count the total amount of bytes received.
         clock_t start, end;
         double time_used_inMS;
         start = clock();
