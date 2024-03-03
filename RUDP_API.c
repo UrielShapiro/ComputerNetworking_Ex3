@@ -226,6 +226,7 @@ rudp_receiver *rudp_open_receiver(unsigned short port)
     if (!validate_checksum(&syn_message))   // Validate the checksum of the received message.
     {
         fprintf(stderr, "Error in SYN message checksum at open_receiver\n");
+        fprintf(stderr, "This might be due to compiler optimisation, if this error persists disable or reduce the compiler optimisation flag - \"-O3\"\n");
         close(this->sock);
         free(this);
         return NULL;
