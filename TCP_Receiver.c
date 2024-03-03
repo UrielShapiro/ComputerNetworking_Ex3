@@ -89,19 +89,24 @@ void CloseSockets(int *sock, int *client_sock, unsigned short format, struct soc
  */
 void endPrints(ArrayList *Times_list, ArrayList *Speed_list, size_t run, unsigned short format)
 {
+    printf("----------------------------------------\n");
+    printf("Runs summary:\n");
     double avg_time = 0;
     double avg_speed = 0;
+    size_t runs_counter = 1;
     for (size_t i = 0; i < Times_list->size && i < Speed_list->size; i++)
     {
         avg_time += Times_list->data[i];
         avg_speed += Speed_list->data[i];
+        if (!format)
+            printf("Run %ld# data: Time: %.2f ms, Speed: %.2f MB/s\n", runs_counter++, Times_list->data[i], Speed_list->data[i]);
     }
     avg_time = avg_time / Times_list->size;
     avg_speed = avg_speed / Speed_list->size;
     if (!format)
     {
-        printf("Average time taken to receive a message: %f\n", avg_time);
-        printf("Average speed: %f\n", avg_speed);
+        printf("Average time: %f\n", avg_time);
+        printf("Average bandwidth: %f\n", avg_speed);
         printf("Number of runs: %ld\n", run);
     }
     if (format)
