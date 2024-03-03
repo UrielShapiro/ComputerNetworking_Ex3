@@ -19,6 +19,7 @@ typedef struct {
  * @brief Opens an RUDP receiver and waits for a connection from a sender.
  * Listens on the given port. and accepts the first connection.
  * Make sure to call rudp_close_receiver on the result to close and free
+ * @param port the port the receiver will listen to
  * @return a pointer to the receiver or NULL on error
  * @note The default maximum number of clients is 1.
 */
@@ -27,13 +28,11 @@ rudp_receiver *rudp_open_receiver(unsigned short port);
 /**
  * @brief Opens an RUDP sender and connects to a receiver in the given address and port
  * Make sure to call rudp_close_sender on the result to close and free
+ * @param address the IP address to which the connection will be opened
+ * @param port the port to which the connection will be opened
  * @return a pointer to the sender or NULL on error
 */
 rudp_sender *rudp_open_sender(char *address, unsigned short port);
-
-/**
-*/
-
 
 /**
  * @brief Closes the RUDP sender, Send a FIN to the associated receiver and closes the connection
@@ -69,10 +68,10 @@ enum rudp_header_flags {
 };
 // The struct of the header of the RUDP protocol
 typedef struct {
-    unsigned short len;     // size not including header
-    char flags;
-    unsigned short checksum;
-    unsigned short segment_num;
+    unsigned short len;         // size of the segment not including header
+    char flags;                 // various flags of the segment
+    unsigned short checksum;    // checksum of the whole segment (including header)
+    unsigned short segment_num; // the number of the segment for segmented messages
 } rudp_header;
 
 #endif // _RUDP_H_
