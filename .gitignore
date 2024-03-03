@@ -2,6 +2,7 @@
 .vscode/
 # PyCharm folder
 .idea/
+__pycache__/Measurements.cpython-311-pytest-7.4.0.pyc
 # c compilation outputs
 *.o
 *.so
