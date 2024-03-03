@@ -17,7 +17,7 @@
  */
 #define MAX_CLIENTS 1
 #define RECV_TIMEOUT_US 100000
-#define RECV_TIMEOUT_S 2
+#define RECV_TIMEOUT_S 10
 
 #define FIN "Closing connection"
 /*
@@ -89,8 +89,11 @@ void CloseSockets(int *sock, int *client_sock, unsigned short format, struct soc
  */
 void endPrints(ArrayList *Times_list, ArrayList *Speed_list, size_t run, unsigned short format)
 {
-    printf("----------------------------------------\n");
-    printf("Runs summary:\n");
+    if (!format)
+    {
+        printf("----------------------------------------\n");
+        printf("Runs summary:\n");
+    }
     double avg_time = 0;
     double avg_speed = 0;
     size_t runs_counter = 1;
@@ -298,7 +301,8 @@ int main(int argc, char **argv)
     int input_size = 0;
     size_t sizeof_input;
 
-    if(format) printf("Time (ms),Speed (MB/s)\n");
+    if (format)
+        printf("Time (ms),Speed (MB/s)\n");
     while (!input_size)
     {
         // Before sending the packege, the sender will send the weight of the package in bytes.
@@ -315,7 +319,7 @@ int main(int argc, char **argv)
     {
         // A variable to store the amout of bytes received in each recv().
         int bytes_received;
-        size_t total_of_bytes_received = 0;    // A variable to count the total amount of bytes received.
+        size_t total_of_bytes_received = 0; // A variable to count the total amount of bytes received.
         clock_t start, end;
         double time_used_inMS;
         start = clock();
@@ -344,20 +348,19 @@ int main(int argc, char **argv)
         end = clock();
         time_used_inMS = 1000 * (double)(end - start) / CLOCKS_PER_SEC; // Calculating the time it took for the message to be received.
         double speed = convertToSpeed(total_of_bytes_received, time_used_inMS);
+        
         if (time_used_inMS > 0 && speed > 0 && noEndMessage)
         {
             // Add the time and speed to their respective lists.
             addToList(&Times_list, time_used_inMS);
             addToList(&Speed_list, speed);
         }
-        if (!format)
+        if (!format && noEndMessage)
         {
             printf("Time taken to receive that messege: %f ms\n", time_used_inMS);
             printf("Speed: %f MB/s\n", speed);
-        }
-
-        if (!format)
             printf("Received %ld bytes from the sender %s:%d\n", total_of_bytes_received, inet_ntoa(sender.sin_addr), ntohs(sender.sin_port));
+        }
         if (format && strcmp(buffer, FIN) != 0 && noEndMessage)
         {
             printf("%ld,%f,%f\n", run, time_used_inMS, (double)convertToMegaBytes(total_of_bytes_received) / (time_used_inMS / 1000));
