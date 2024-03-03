@@ -9,13 +9,13 @@
 #include <time.h>
 #include <sys/time.h> // For struct timeval
 
+#define TRUE 1
+#define FILE_SIZE 2097152                // The size of the file to be sent - currently 2MB
+#define REPEAT_END_MESSAGE 3             // The number of times the ending message would be sent
+#define FIN_MESSAGE "Closing connection" // The message to be sent to the receiver to indicate the end of connection
 
-#define FILE_SIZE 2097152  //The size of the file to be sent - currently 2MB
-#define REPEAT_END_MESSAGE 3    //The number of times the ending message would be sent
-#define FIN_MESSAGE "Closing connection"    //The message to be sent to the receiver to indicate the end of connection
-
-#define RECV_TIMEOUT_US 10000   //The timeout for the socket to receive data in microseconds
-#define RECV_TIMEOUT_S 2        //The timeout for the socket to receive data in seconds
+#define RECV_TIMEOUT_US 10000 // The timeout for the socket to receive data in microseconds
+#define RECV_TIMEOUT_S 2      // The timeout for the socket to receive data in seconds
 
 /*
  * @brief A random data generator function based on srand() and rand().
@@ -41,7 +41,7 @@ char *util_generate_random_data(unsigned int size)
 
 int main(int argc, char **argv)
 {
-    if(argc == 1)   //If no arguments were given
+    if (argc == 1) // If no arguments were given
     {
         printf("Error! No arguments were given\n");
         return 1;
@@ -111,7 +111,7 @@ int main(int argc, char **argv)
     if (inet_pton(AF_INET, ip, &receiver.sin_addr) <= 0)
     {
         perror("inet_pton(3)");
-        close(sock);\
+        close(sock);
         free(message);
         return 1;
     }
@@ -142,7 +142,7 @@ int main(int argc, char **argv)
     timeout.tv_usec = RECV_TIMEOUT_US;
     if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
     {
-        perror("Error setting timeout for the socket\n");
+        perror("Error setting timeout for the socket");
         close(sock);
         return 1;
     }
@@ -156,10 +156,12 @@ int main(int argc, char **argv)
         close(sock);
         return 1;
     }
-    
+
     //---------------------------------START SENDING INFORMATION------------------------------------------------
 
     printf("Successfully connected to the receiver!\n");
+
+
     // Sending the size of the input to the receiver.
     uint32_t report_file_size = htonl(FILE_SIZE);
     int starting_message = send(sock, (void *)&report_file_size, sizeof(report_file_size), 0);
@@ -169,6 +171,8 @@ int main(int argc, char **argv)
         close(sock);
         return 1;
     }
+    struct timespec ts = {0, 100000000L}; // 100ms
+    nanosleep(&ts, NULL);   // Sleep for 100ms so that the receiver would have time parse the input before the sender sends the rest of the data.
     int bytes_sent;
     char choice;
     if (auto_run == 0)
@@ -189,7 +193,7 @@ int main(int argc, char **argv)
             printf("Do you want to send again? (Y/n)\n");
             do
             {
-                choice = getchar(); //Getting a char from the user untill he writes 'y', 'Y', 'n', 'N'
+                choice = getchar(); // Getting a char from the user untill he writes 'y', 'Y', 'n', 'N'
             } while (choice != 'n' && choice != 'N' && choice != 'y' && choice != 'Y');
         } while (choice != 'n' && choice != 'N');
     }
@@ -209,7 +213,7 @@ int main(int argc, char **argv)
     }
     free(message);
     char *ending_message = FIN_MESSAGE;
-    for (size_t i = 0; i < REPEAT_END_MESSAGE; i++) //Sending the 
+    for (size_t i = 0; i < REPEAT_END_MESSAGE; i++) // Sending the
     {
         // Try to send the message to the receiver using the socket.
         bytes_sent = send(sock, ending_message, strlen(ending_message) + 1, 0);
