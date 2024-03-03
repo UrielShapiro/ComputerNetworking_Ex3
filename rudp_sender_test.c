@@ -14,7 +14,11 @@ int main(void)
     do
     {
         printf("Enter message: ");
-        fgets(message, 1024, stdin);
+        if (!fgets(message, 1024, stdin))
+        {
+            perror("Error in fgets");
+            return 1;
+        }
         message[strcspn(message, "\n")] = '\0';
         printf("Attempting to send message: \"%s\"...\n", message);
         if (rudp_send(sender, message, strlen(message) + 1) < 0)
