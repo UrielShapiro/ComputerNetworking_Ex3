@@ -20,6 +20,7 @@ int main(void)
             return 1;
         }
         message[strcspn(message, "\n")] = '\0';
+        if (strcmp(message, "close") == 0) continue;
         printf("Attempting to send message: \"%s\"...\n", message);
         if (rudp_send(sender, message, strlen(message) + 1) < 0)
         {
