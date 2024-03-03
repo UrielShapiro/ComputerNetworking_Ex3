@@ -54,7 +54,7 @@ RUDP_Receiver.o: RUDP_Receiver.c rudp.h
 RUDP_Sender.o: RUDP_Sender.c rudp.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-rudp.o: rudp.c rudp.h
+rudp.o: RUDP_API.c rudp.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 
