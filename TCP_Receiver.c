@@ -171,7 +171,7 @@ int main(int argc, char **argv)
     {
         printf("Port: %d\n", port);
         printf("Algorithm: %s\n", algo);
-        printf("Auto Run: %d\n", format);
+        printf("Format: %s\n", format ? "ON" : "OFF");
     }
     //---------------------------------------CONFIGURING SOCKETS------------------------------------------------
     // The variable to store the socket file descriptor.
